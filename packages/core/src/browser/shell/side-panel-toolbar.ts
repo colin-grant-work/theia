@@ -21,6 +21,7 @@ import { BaseWidget } from '../widgets';
 import { Emitter } from '../../common/event';
 import { ContextMenuAccess, Anchor } from '../context-menu-renderer';
 
+
 export class SidePanelToolbar extends BaseWidget {
 
     protected titleContainer: HTMLElement | undefined;
@@ -77,9 +78,8 @@ export class SidePanelToolbar extends BaseWidget {
             return;
         }
         const current = this._toolbarTitle;
-        const widget = current && current.owner || undefined;
-        const items = widget ? this.tabBarToolbarRegistry.visibleItems(widget) : [];
-        this.toolbar.updateItems(items, widget);
+        const widget = current?.owner;
+        this.toolbar.updateWithWidget(widget);
     }
 
     protected init(): void {

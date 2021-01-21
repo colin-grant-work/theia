@@ -29,11 +29,110 @@ import { ContextMenuRenderer, Anchor } from '../context-menu-renderer';
 import { MenuModelRegistry } from '../../common/menu';
 
 /**
+ * Clients should implement this interface if they want to contribute to the tab-bar toolbar.
+ */
+export const TabBarToolbarContribution = Symbol('TabBarToolbarContribution');
+/**
+ * Representation of a tabbar toolbar contribution.
+ */
+export interface TabBarToolbarContribution {
+    /**
+     * Registers toolbar items.
+     * @param registry the tabbar toolbar registry.
+     */
+    registerToolbarItems(registry: TabBarToolbarRegistry): void;
+}
+
+/**
+ * Main, shared registry for tab-bar toolbar items.
+ */
+@injectable()
+export class TabBarToolbarRegistry implements FrontendApplicationContribution {
+
+    protected items: Map<string, TabBarToolbarItem | ReactTabBarToolbarItem> = new Map();
+
+    @inject(CommandRegistry)
+    protected readonly commandRegistry: CommandRegistry;
+
+    @inject(ContextKeyService)
+    protected readonly contextKeyService: ContextKeyService;
+
+    @inject(ContributionProvider)
+    @named(TabBarToolbarContribution)
+    protected readonly contributionProvider: ContributionProvider<TabBarToolbarContribution>;
+
+    protected readonly onDidChangeEmitter = new Emitter<void>();
+    readonly onDidChange: Event<void> = this.onDidChangeEmitter.event;
+    // debounce in order to avoid to fire more than once in the same tick
+    protected fireOnDidChange = debounce(() => this.onDidChangeEmitter.fire(undefined), 0);
+
+    onStart(): void {
+        const contributions = this.contributionProvider.getContributions();
+        for (const contribution of contributions) {
+            contribution.registerToolbarItems(this);
+        }
+    }
+
+    /**
+     * Registers the given item. Throws an error, if the corresponding command cannot be found or an item has been already registered for the desired command.
+     *
+     * @param item the item to register.
+     */
+    registerItem(item: TabBarToolbarItem | ReactTabBarToolbarItem): Disposable {
+        const { id } = item;
+        if (this.items.has(id)) {
+            throw new Error(`A toolbar item is already registered with the '${id}' ID.`);
+        }
+        this.items.set(id, item);
+        this.fireOnDidChange();
+        const toDispose = new DisposableCollection(
+            Disposable.create(() => this.fireOnDidChange()),
+            Disposable.create(() => this.items.delete(id))
+        );
+        if (item.onDidChange) {
+            toDispose.push(item.onDidChange(() => this.fireOnDidChange()));
+        }
+        return toDispose;
+    }
+
+    /**
+     * Returns an array of tab-bar toolbar items which are visible when the `widget` argument is the current one.
+     *
+     * By default returns with all items where the command is enabled and `item.isVisible` is `true`.
+     */
+    visibleItems(widget: Widget): Array<TabBarToolbarItem | ReactTabBarToolbarItem> {
+        if (widget.isDisposed) {
+            return [];
+        }
+        const result = [];
+        for (const item of this.items.values()) {
+            const visible = TabBarToolbarItem.is(item)
+                ? this.commandRegistry.isVisible(item.command, widget)
+                : (!item.isVisible || item.isVisible(widget));
+            if (visible && (!item.when || this.contextKeyService.match(item.when, widget.node))) {
+                result.push(item);
+            }
+        }
+        return result;
+    }
+
+}
+
+/**
  * Factory for instantiating tab-bar toolbars.
  */
 export const TabBarToolbarFactory = Symbol('TabBarToolbarFactory');
 export interface TabBarToolbarFactory {
     (): TabBarToolbar;
+}
+
+export interface ToolbarDelegator {
+    getToolbarDelegate(): Widget | undefined;
+}
+
+export namespace ToolbarDelegator {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    export const is = (candidate: any): candidate is ToolbarDelegator => !!candidate && typeof candidate['getToolbarDelegate'] === 'function';
 }
 
 /**
@@ -58,10 +157,26 @@ export class TabBarToolbar extends ReactWidget {
     @inject(ContextMenuRenderer)
     protected readonly contextMenuRenderer: ContextMenuRenderer;
 
+    @inject(TabBarToolbarRegistry)
+    protected readonly toolbarRegistry: TabBarToolbarRegistry;
+
     constructor() {
         super();
         this.addClass(TabBarToolbar.Styles.TAB_BAR_TOOLBAR);
         this.hide();
+    }
+
+    updateWithWidget(widget: Widget | undefined): void {
+        let current = widget;
+        while (ToolbarDelegator.is(current)) {
+            const before = current;
+            current = current.getToolbarDelegate();
+            if (current === before) {
+                break;
+            }
+        }
+        const items = current ? this.toolbarRegistry.visibleItems(current) : [];
+        this.updateItems(items, current);
     }
 
     updateItems(items: Array<TabBarToolbarItem | ReactTabBarToolbarItem>, current: Widget | undefined): void {
@@ -209,21 +324,6 @@ export namespace TabBarToolbar {
 }
 
 /**
- * Clients should implement this interface if they want to contribute to the tab-bar toolbar.
- */
-export const TabBarToolbarContribution = Symbol('TabBarToolbarContribution');
-/**
- * Representation of a tabbar toolbar contribution.
- */
-export interface TabBarToolbarContribution {
-    /**
-     * Registers toolbar items.
-     * @param registry the tabbar toolbar registry.
-     */
-    registerToolbarItems(registry: TabBarToolbarRegistry): void;
-}
-
-/**
  * Representation of an item in the tab
  */
 export interface TabBarToolbarItem {
@@ -346,77 +446,3 @@ export namespace TabBarToolbarItem {
 
 }
 
-/**
- * Main, shared registry for tab-bar toolbar items.
- */
-@injectable()
-export class TabBarToolbarRegistry implements FrontendApplicationContribution {
-
-    protected items: Map<string, TabBarToolbarItem | ReactTabBarToolbarItem> = new Map();
-
-    @inject(CommandRegistry)
-    protected readonly commandRegistry: CommandRegistry;
-
-    @inject(ContextKeyService)
-    protected readonly contextKeyService: ContextKeyService;
-
-    @inject(ContributionProvider)
-    @named(TabBarToolbarContribution)
-    protected readonly contributionProvider: ContributionProvider<TabBarToolbarContribution>;
-
-    protected readonly onDidChangeEmitter = new Emitter<void>();
-    readonly onDidChange: Event<void> = this.onDidChangeEmitter.event;
-    // debounce in order to avoid to fire more than once in the same tick
-    protected fireOnDidChange = debounce(() => this.onDidChangeEmitter.fire(undefined), 0);
-
-    onStart(): void {
-        const contributions = this.contributionProvider.getContributions();
-        for (const contribution of contributions) {
-            contribution.registerToolbarItems(this);
-        }
-    }
-
-    /**
-     * Registers the given item. Throws an error, if the corresponding command cannot be found or an item has been already registered for the desired command.
-     *
-     * @param item the item to register.
-     */
-    registerItem(item: TabBarToolbarItem | ReactTabBarToolbarItem): Disposable {
-        const { id } = item;
-        if (this.items.has(id)) {
-            throw new Error(`A toolbar item is already registered with the '${id}' ID.`);
-        }
-        this.items.set(id, item);
-        this.fireOnDidChange();
-        const toDispose = new DisposableCollection(
-            Disposable.create(() => this.fireOnDidChange()),
-            Disposable.create(() => this.items.delete(id))
-        );
-        if (item.onDidChange) {
-            toDispose.push(item.onDidChange(() => this.fireOnDidChange()));
-        }
-        return toDispose;
-    }
-
-    /**
-     * Returns an array of tab-bar toolbar items which are visible when the `widget` argument is the current one.
-     *
-     * By default returns with all items where the command is enabled and `item.isVisible` is `true`.
-     */
-    visibleItems(widget: Widget): Array<TabBarToolbarItem | ReactTabBarToolbarItem> {
-        if (widget.isDisposed) {
-            return [];
-        }
-        const result = [];
-        for (const item of this.items.values()) {
-            const visible = TabBarToolbarItem.is(item)
-                ? this.commandRegistry.isVisible(item.command, widget)
-                : (!item.isVisible || item.isVisible(widget));
-            if (visible && (!item.when || this.contextKeyService.match(item.when, widget.node))) {
-                result.push(item);
-            }
-        }
-        return result;
-    }
-
-}
