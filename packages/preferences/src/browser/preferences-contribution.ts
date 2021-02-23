@@ -36,6 +36,7 @@ import { WorkspacePreferenceProvider } from './workspace-preference-provider';
 import { Preference, PreferencesCommands, PreferenceMenus } from './util/preference-types';
 import { ClipboardService } from '@theia/core/lib/browser/clipboard-service';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
+import { WorkspaceService } from '@theia/workspace/lib/browser';
 
 @injectable()
 export class PreferencesContribution extends AbstractViewContribution<PreferencesWidget> {
@@ -46,6 +47,7 @@ export class PreferencesContribution extends AbstractViewContribution<Preference
     @inject(PreferenceService) protected readonly preferenceService: PreferenceService;
     @inject(ClipboardService) protected readonly clipboardService: ClipboardService;
     @inject(PreferencesWidget) protected readonly scopeTracker: PreferencesWidget;
+    @inject(WorkspaceService) protected readonly workspaceService: WorkspaceService;
 
     constructor() {
         super({
@@ -58,6 +60,15 @@ export class PreferencesContribution extends AbstractViewContribution<Preference
     }
 
     registerCommands(commands: CommandRegistry): void {
+        commands.registerCommand({
+            id: 'test.preference.double.setting',
+            label: 'Set two preferences back to back!',
+        }, {
+            execute: () => {
+                this.preferenceService.set('editor.fontSize', 24, PreferenceScope.Folder, this.workspaceService.tryGetRoots()[0]?.resource.toString());
+                this.preferenceService.set('editor.fontWeight', 'bold', PreferenceScope.Folder, this.workspaceService.tryGetRoots()[0]?.resource.toString());
+            }
+        });
         commands.registerCommand(CommonCommands.OPEN_PREFERENCES, {
             execute: () => this.openView({ reveal: true }),
         });
