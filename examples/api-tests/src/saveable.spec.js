@@ -554,7 +554,7 @@ describe('Saveable', function () {
         }
     });
 
-    it('saves preference file when open and not dirty', async function () {
+    it.only('saves preference file when open and not dirty', async function () {
         const prefName = 'editor.copyWithSyntaxHighlighting';
         const prefTest = await setUpPrefsTest([prefName]);
         if (!prefTest) { return; }
@@ -567,27 +567,31 @@ describe('Saveable', function () {
         assert.equal(1, record.calls, 'save should have been called one time.');
     });
 
-    it('saves once when many edits are made (editor open)', async function () {
-        const prefNames = ['editor.copyWithSyntaxHighlighting', 'debug.inlineValues'];
+    it.only('saves once when many edits are made (editor open)', async function () {
+        const incrementablePreference = 'diffEditor.maxComputationTime';
+        const booleanPreference = 'editor.copyWithSyntaxHighlighting';
+        const prefNames = [incrementablePreference, booleanPreference];
         const prefTest = await setUpPrefsTest(prefNames);
         if (!prefTest) { return; }
 
         const { record, initialValues, editorWidget } = prefTest;
+        const targetScope = rootUri.toString();
 
         /** @type {Promise<void>[]} */
         const attempts = [];
+        let booleanSwap = initialValues[0];
         while (attempts.length < 250) {
-            prefNames.forEach((prefName, index) => {
-                const value = attempts.length % 2 === 0 ? !initialValues[index] : initialValues[index];
-                attempts.push(preferences.set(prefName, value, undefined, rootUri.toString()));
-            });
+            booleanSwap = !booleanSwap;
+            attempts.push(preferences.set(booleanPreference, booleanSwap, undefined, targetScope));
+            attempts.push(preferences.set(incrementablePreference, attempts.length, undefined, targetScope));
         }
         await Promise.all(attempts);
         assert.isFalse(Saveable.isDirty(editorWidget), "editor should not be dirty if it wasn't dirty before");
         assert.equal(1, record.calls, 'save should have been called one time.');
+        assert.equal(attempts.length - 1, preferences.get(incrementablePreference, undefined, targetScope), 'The final setting should be in effect.');
     });
 
-    it('saves once when many edits are made (editor closed)', async function () {
+    it.only('saves once when many edits are made (editor closed)', async function () {
         const prefNames = ['editor.copyWithSyntaxHighlighting', 'debug.inlineValues'];
         const prefTest = await setUpPrefsTest(prefNames);
         if (!prefTest) { return; }
@@ -607,7 +611,7 @@ describe('Saveable', function () {
         assert.equal(1, record.calls, 'save should have been called one time.');
     });
 
-    it('displays the toast once no matter how many edits are queued', async function () {
+    it.only('displays the toast once no matter how many edits are queued', async function () {
         const prefNames = ['editor.copyWithSyntaxHighlighting', 'debug.inlineValues'];
         const prefTest = await setUpPrefsTest(prefNames);
         if (!prefTest) { return; }

@@ -30,11 +30,53 @@ import { MonacoEditorModel } from '@theia/monaco/lib/browser/monaco-editor-model
 import { MonacoWorkspace } from '@theia/monaco/lib/browser/monaco-workspace';
 import { Deferred } from '@theia/core/lib/common/promise-util';
 import { EditorManager } from '@theia/editor/lib/browser';
+import { Emitter } from '@theia/core/lib/common';
 
 interface EnqueuedPreferenceChange {
     key: string,
     value: any,
     editResolver: Deferred<boolean | Promise<boolean>>,
+}
+
+class LockQueue {
+    protected readonly queue: Deferred<void>[] = [];
+    protected busy: boolean = false;
+    protected readonly onFreeEmitter = new Emitter<void>();
+    readonly onFree = this.onFreeEmitter.event;
+
+    acquire(): Promise<void> {
+        const wasBusy = this.busy;
+        this.busy = true;
+        if (wasBusy) {
+            const addedToQueue = new Deferred<void>();
+            this.queue.push(addedToQueue);
+            return addedToQueue.promise;
+        }
+        return Promise.resolve();
+    }
+
+    release(): void {
+        const next = this.queue.shift();
+        if (next) {
+            next.resolve();
+        } else {
+            this.busy = false;
+            this.onFreeEmitter.fire();
+        }
+    }
+
+    waitUntilFree(): Promise<void> {
+        if (!this.busy) {
+            return Promise.resolve();
+        }
+
+        return new Promise(resolve => {
+            const toDisposeOnFree = this.onFree(() => {
+                resolve();
+                toDisposeOnFree.dispose();
+            });
+        });
+    }
 }
 
 @injectable()
@@ -45,7 +87,7 @@ export abstract class AbstractResourcePreferenceProvider extends PreferenceProvi
     protected editQueue: EnqueuedPreferenceChange[] = [];
     protected readonly loading = new Deferred();
     protected dirtyEditorHandled = new Deferred();
-    protected pendingTransaction = new Deferred();
+    protected fileEditLock = new LockQueue();
 
     @inject(PreferenceService) protected readonly preferenceService: PreferenceService;
     @inject(MessageService) protected readonly messageService: MessageService;
@@ -69,7 +111,6 @@ export abstract class AbstractResourcePreferenceProvider extends PreferenceProvi
         this.toDispose.push(Disposable.create(() => this.loading.reject(new Error(`preference provider for '${uri}' was disposed`))));
         this._ready.resolve();
         this.dirtyEditorHandled.resolve();
-        this.pendingTransaction.resolve();
 
         const reference = await this.textModelService.createModelReference(uri);
         if (this.toDispose.disposed) {
@@ -125,25 +166,29 @@ export abstract class AbstractResourcePreferenceProvider extends PreferenceProvi
 
     async setPreference(key: string, value: any, resourceUri?: string): Promise<boolean> {
         await this.loading.promise;
-        // Wait for save of previous transaction
-        await this.pendingTransaction.promise;
         if (!this.model) {
             return false;
         }
         if (!this.contains(resourceUri)) {
             return false;
         }
+
+        // Wait for save of previous transaction to prevent false positives on model.dirty when a progrommatic save is  in progress.
+        await this.fileEditLock.waitUntilFree();
         const isFirstEditInQueue = !this.editQueue.length;
         const mustHandleDirty = isFirstEditInQueue && this.model.dirty;
+        const editResolver = new Deferred<boolean | Promise<boolean>>();
+        this.editQueue.push({ key, value, editResolver });
+
         if (mustHandleDirty) {
             this.dirtyEditorHandled = new Deferred();
             this.handleDirtyEditor();
         }
-        const editResolver = new Deferred<boolean | Promise<boolean>>();
-        this.editQueue.push({ key, value, editResolver });
+
         if (isFirstEditInQueue) {
             this.doSetPreferences();
         }
+
         return editResolver.promise;
     }
 
@@ -158,7 +203,7 @@ export abstract class AbstractResourcePreferenceProvider extends PreferenceProvi
         let success = true;
         // Defer new actions until transaction complete.
         // Prevents the dirty-editor toast from appearing if save cycle in progress.
-        this.pendingTransaction = new Deferred();
+        await this.fileEditLock.acquire();
         try {
             if (this.model?.dirty) {
                 await this.model.save();
@@ -168,7 +213,7 @@ export abstract class AbstractResourcePreferenceProvider extends PreferenceProvi
         } catch {
             success = false;
         }
-        this.pendingTransaction.resolve();
+        this.fileEditLock.release();
         localPendingChanges.resolve(success);
     }
 
