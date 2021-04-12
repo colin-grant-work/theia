@@ -27,9 +27,10 @@ import { TaskContribution, TaskResolverRegistry, TaskProviderRegistry } from './
 import { TaskService } from './task-service';
 import { TerminalMenus } from '@theia/terminal/lib/browser/terminal-frontend-contribution';
 import { TaskSchemaUpdater } from './task-schema-updater';
-import { TaskConfiguration, TaskWatcher } from '../common';
+import { TaskConfiguration, TaskScope, TaskWatcher } from '../common';
 import { EditorManager } from '@theia/editor/lib/browser';
 import { WorkspaceService } from '@theia/workspace/lib/browser/workspace-service';
+import { TaskConfigurationManager } from './task-configuration-manager';
 
 export namespace TaskCommands {
     const TASK_CATEGORY = 'Task';
@@ -165,6 +166,9 @@ export class TaskFrontendContribution implements CommandContribution, MenuContri
 
     @inject(WorkspaceService)
     protected readonly workspaceService: WorkspaceService;
+
+    @inject(TaskConfigurationManager)
+    protected readonly taskConfigurationManager: TaskConfigurationManager;
 
     @postConstruct()
     protected async init(): Promise<void> {
@@ -325,6 +329,15 @@ export class TaskFrontendContribution implements CommandContribution, MenuContri
             TaskCommands.TASK_RESTART_RUNNING,
             {
                 execute: () => this.taskRestartRunningQuickOpen.open()
+            }
+        );
+
+        registry.registerCommand(
+            { id: 'check-workspace-scope', label: 'Check tasks listed in workspace scope.' },
+            {
+                execute: async () => {
+                    console.log('Tasks in workspace scope', this.taskConfigurationManager.getTasks(TaskScope.Workspace));
+                },
             }
         );
     }
