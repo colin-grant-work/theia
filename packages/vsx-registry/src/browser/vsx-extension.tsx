@@ -30,6 +30,7 @@ import { VSXExtensionsSearchModel } from './vsx-extensions-search-model';
 import { VSXExtensionNamespaceAccess, VSXUser } from '../common/vsx-registry-types';
 import { MenuPath } from '@theia/core/lib/common';
 import { ContextMenuRenderer } from '@theia/core/lib/browser';
+import { ReactTabBarToolbarItem } from '@theia/core/src/browser/shell/tab-bar-toolbar';
 
 export const EXTENSIONS_CONTEXT_MENU: MenuPath = ['extensions_context_menu'];
 
@@ -586,3 +587,8 @@ export class VSXExtensionEditorComponent extends AbstractVSXExtensionComponent {
         }
     };
 }
+
+export const universallyVisibleItem: ReactTabBarToolbarItem = {
+    id: 'certainly-unique-toolbar-ID',
+    render: () => <div onClick={() => console.log('Clicked a toolbar item.')}>A</div>,
+};

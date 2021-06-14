@@ -29,7 +29,7 @@ import { MenuModelRegistry, MessageService, Mutable } from '@theia/core/lib/comm
 import { FileDialogService, OpenFileDialogProps } from '@theia/filesystem/lib/browser';
 import { LabelProvider, PreferenceService } from '@theia/core/lib/browser';
 import { VscodeCommands } from '@theia/plugin-ext-vscode/lib/browser/plugin-vscode-commands-contribution';
-import { VSXExtensionsContextMenu, VSXExtension } from './vsx-extension';
+import { VSXExtensionsContextMenu, VSXExtension, universallyVisibleItem } from './vsx-extension';
 import { ClipboardService } from '@theia/core/lib/browser/clipboard-service';
 import { BUILTIN_QUERY, INSTALLED_QUERY, RECOMMENDED_QUERY } from './vsx-extensions-search-model';
 import { IGNORE_RECOMMENDATIONS_ID } from './recommended-extensions/recommended-extensions-preference-contribution';
@@ -159,6 +159,8 @@ export class VSXExtensionsContribution extends AbstractViewContribution<VSXExten
             tooltip: VSXExtensionsCommands.INSTALL_FROM_VSIX.label,
             group: 'other_1'
         });
+
+        registry.registerItem(universallyVisibleItem);
     }
 
     /**
