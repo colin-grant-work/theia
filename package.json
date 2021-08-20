@@ -7,6 +7,9 @@
     "node": ">=12.14.1 <13"
   },
   "resolutions": {
+    "**/keytar": "7.6.0",
+    "**/drivelist": "9.2.4",
+    "**/oniguruma": "7.2.1",
     "**/@types/node": "12",
     "**/node-abi": "^2.18.0"
   },
@@ -153,6 +156,7 @@
     "vscode-builtin-yaml": "https://open-vsx.org/api/vscode/yaml/1.45.1/file/vscode.yaml-1.45.1.vsix",
     "vscode-editorconfig": "https://open-vsx.org/api/EditorConfig/EditorConfig/0.14.4/file/EditorConfig.EditorConfig-0.14.4.vsix",
     "vscode-eslint": "https://open-vsx.org/api/dbaeumer/vscode-eslint/2.1.1/file/dbaeumer.vscode-eslint-2.1.1.vsix",
-    "vscode-references-view": "https://open-vsx.org/api/ms-vscode/references-view/0.0.47/file/ms-vscode.references-view-0.0.47.vsix"
+    "vscode-references-view": "https://open-vsx.org/api/ms-vscode/references-view/0.0.47/file/ms-vscode.references-view-0.0.47.vsix",
+    "rust-analyzer": "https://open-vsx.org/api/matklad/rust-analyzer/0.2.694/file/matklad.rust-analyzer-0.2.694.vsix"
   }
 }
