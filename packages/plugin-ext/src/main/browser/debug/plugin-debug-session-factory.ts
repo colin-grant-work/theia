@@ -25,12 +25,12 @@ import { DebugPreferences } from '@theia/debug/lib/browser/debug-preferences';
 import { DebugSessionOptions } from '@theia/debug/lib/browser/debug-session-options';
 import { DebugSession } from '@theia/debug/lib/browser/debug-session';
 import { DebugSessionConnection } from '@theia/debug/lib/browser/debug-session-connection';
+import { Channel } from '@theia/core/lib/common/messaging';
 import { TerminalWidgetOptions, TerminalWidget } from '@theia/terminal/lib/browser/base/terminal-widget';
 import { TerminalOptionsExt } from '../../../common/plugin-api-rpc';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { DebugContribution } from '@theia/debug/lib/browser/debug-contribution';
 import { ContributionProvider } from '@theia/core/lib/common/contribution-provider';
-import { Channel } from '@theia/debug/lib/common/debug-service';
 
 export class PluginDebugSession extends DebugSession {
     constructor(
@@ -68,7 +68,7 @@ export class PluginDebugSessionFactory extends DefaultDebugSessionFactory {
         protected readonly messages: MessageClient,
         protected readonly outputChannelManager: OutputChannelManager,
         protected readonly debugPreferences: DebugPreferences,
-        protected readonly connectionFactory: (sessionId: string) => Promise<Channel>,
+        protected readonly connectionFactory: (sessionId: string) => Promise<Channel<string>>,
         protected readonly fileService: FileService,
         protected readonly terminalOptionsExt: TerminalOptionsExt | undefined,
         protected readonly debugContributionProvider: ContributionProvider<DebugContribution>
@@ -80,8 +80,8 @@ export class PluginDebugSessionFactory extends DefaultDebugSessionFactory {
         const connection = new DebugSessionConnection(
             sessionId,
             this.connectionFactory,
-            this.getTraceOutputChannel());
-
+            this.getTraceOutputChannel()
+        );
         return new PluginDebugSession(
             sessionId,
             options,

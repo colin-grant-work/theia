@@ -13,64 +13,88 @@
  *
  * SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
  ********************************************************************************/
-import { Channel } from '@theia/debug/lib/common/debug-service';
+
+import type { Message, MessageReader, MessageWriter } from '@theia/core/shared/vscode-languageserver-protocol';
+import { Channel } from '@theia/core/lib/common/messaging';
 import { ConnectionExt, ConnectionMain } from './plugin-api-rpc';
-import { Emitter } from '@theia/core/lib/common/event';
+import { Disposable } from './disposable-util';
+import { PluginMessageReader } from './plugin-message-reader';
+import { PluginMessageWriter } from './plugin-message-writer';
+import { PluginMessage } from './plugin-message';
+
 
 /**
- * A channel communicating with a counterpart in a plugin host.
+ * The interface for describing the connection between plugins and main side.
  */
-export class PluginChannel implements Channel {
-    private messageEmitter: Emitter<string> = new Emitter();
-    private errorEmitter: Emitter<unknown> = new Emitter();
-    private closedEmitter: Emitter<void> = new Emitter();
+export interface Connection extends Disposable {
+    readonly reader: MessageReader;
+    readonly writer: MessageWriter;
+    /**
+     * Allows to forward messages to another connection.
+     *
+     * @param to the connection to forward messages
+     * @param map the function in which the message can be changed before forwarding
+     */
+    forward(to: Connection, map?: (message: Message) => Message): void;
+}
+
+/**
+ * The container for message reader and writer which can be used to create connection between plugins and main side.
+ */
+export class PluginConnection implements Connection {
+    constructor(
+        readonly reader: PluginMessageReader,
+        readonly writer: PluginMessageWriter,
+        readonly dispose: () => void) {
+    }
+
+    forward(to: Connection, map: (message: Message) => Message = message => message): void {
+        this.reader.listen(input => {
+            const output = map(input);
+            to.writer.write(output);
+        });
+    }
+}
+
+
+/**
+ * Wrapper around a [PluginConnection](#PluginConnection) to match the [Channel](#Channel) interface.
+ */
+export class PluginChannel implements Channel<string> {
 
     constructor(
-        protected readonly id: string,
-        protected readonly connection: ConnectionExt | ConnectionMain) { }
+        protected readonly connection: PluginConnection
+    ) { }
 
     send(content: string): void {
-        this.connection.$sendMessage(this.id, content);
+        // vscode-jsonrpc's MessageReader/Writer expect to send JSON-RPC messages.
+        // Use a bogus jsonrpc version and pass along the `content` to send.
+        // `content` here is opaque: it could be any string.
+        const message: PluginMessage = { jsonrpc: '0.0', content };
+        this.connection.writer.write(message);
     }
 
-    fireMessageReceived(msg: string): void {
-        this.messageEmitter.fire(msg);
+    onMessage(cb: (data: string) => void): void {
+        this.connection.reader.listen((message: PluginMessage) => cb(message.content));
     }
 
-    fireError(error: unknown): void {
-        this.errorEmitter.fire(error);
-    }
-
-    fireClosed(): void {
-        this.closedEmitter.fire();
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onMessage(cb: (data: any) => void): void {
-        this.messageEmitter.event(cb);
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError(cb: (reason: any) => void): void {
-        this.errorEmitter.event(cb);
+    onError(cb: (reason: unknown) => void): void {
+        this.connection.reader.onError(cb);
     }
 
     onClose(cb: (code: number, reason: string) => void): void {
-        this.closedEmitter.event(() => cb(-1, 'closed'));
+        this.connection.reader.onClose(() => cb(-1, 'closed'));
     }
 
-    close(): void {
-        this.connection.$deleteConnection(this.id);
+    dispose(): void {
+        this.connection.dispose();
     }
 }
 
 export class ConnectionImpl implements ConnectionMain, ConnectionExt {
-    private readonly proxy: ConnectionExt | ConnectionExt;
-    private readonly connections = new Map<string, PluginChannel>();
+    protected readonly connections = new Map<string, PluginChannel>();
 
-    constructor(proxy: ConnectionMain | ConnectionExt) {
-        this.proxy = proxy;
-    }
+    constructor(protected readonly proxy: ConnectionMain | ConnectionExt) { }
 
     /**
      * Gets the connection between plugin by id and sends string message to it.
@@ -80,7 +104,7 @@ export class ConnectionImpl implements ConnectionMain, ConnectionExt {
      */
     async $sendMessage(id: string, message: string): Promise<void> {
         if (this.connections.has(id)) {
-            this.connections.get(id)!.fireMessageReceived(message);
+            this.connections.get(id)!.send(message);
         } else {
             console.warn(`Received message for unknown connection: ${id}`);
         }
@@ -105,12 +129,12 @@ export class ConnectionImpl implements ConnectionMain, ConnectionExt {
         const connection = this.connections.get(id);
         if (connection) {
             this.connections.delete(id);
-            connection.fireClosed();
+            connection.dispose();
         }
     }
 
     /**
-     * Returns existed connection or creates a new one.
+     * Returns existing connection or creates a new one.
      * @param id the connection id
      */
     async ensureConnection(id: string): Promise<PluginChannel> {
@@ -131,8 +155,24 @@ export class ConnectionImpl implements ConnectionMain, ConnectionExt {
     }
 
     protected async doCreateConnection(id: string): Promise<PluginChannel> {
-        const channel = new PluginChannel(id, this.proxy);
+        const reader = new PluginMessageReader();
+        const writer = new PluginMessageWriter(id, this.proxy);
+        const connection = new PluginConnection(
+            reader,
+            writer,
+            () => {
+                this.connections.delete(id);
+                this.proxy.$deleteConnection(id);
+            });
+        const channel = new PluginChannel(connection);
         channel.onClose(() => this.connections.delete(id));
         return channel;
     }
 }
+
+/**
+ * Use `PluginChannel` instead.
+ *
+ * @deprecated since 1.19.0
+ */
+export const PluginWebSocketChannel = PluginChannel;

@@ -26,15 +26,15 @@ import {
     DebugAdapterSession
 } from './debug-model';
 import { DebugProtocol } from 'vscode-debugprotocol';
-import { Channel } from '../common/debug-service';
+import { Channel } from '@theia/core/lib/common/messaging';
 
 /**
  * [DebugAdapterSession](#DebugAdapterSession) implementation.
  */
 export class DebugAdapterSessionImpl implements DebugAdapterSession {
 
-    private channel: Channel | undefined;
-    private isClosed: boolean = false;
+    protected channel?: Channel<string>;
+    protected isClosed: boolean = false;
 
     constructor(
         readonly id: string,
@@ -47,15 +47,13 @@ export class DebugAdapterSessionImpl implements DebugAdapterSession {
     }
 
     async start(channel: Channel): Promise<void> {
-
         console.debug(`starting debug adapter session '${this.id}'`);
         if (this.channel) {
             throw new Error('The session has already been started, id: ' + this.id);
         }
         this.channel = channel;
-        this.channel.onMessage((message: string) => this.write(message));
+        this.channel.onMessage(message => this.write(message));
         this.channel.onClose(() => this.channel = undefined);
-
     }
 
     protected onDebugAdapterExit(): void {

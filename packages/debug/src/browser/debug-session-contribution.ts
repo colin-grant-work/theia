@@ -16,6 +16,7 @@
 
 import { injectable, inject, named, postConstruct } from '@theia/core/shared/inversify';
 import { MessageClient } from '@theia/core/lib/common';
+import { Channel } from '@theia/core/lib/common/messaging';
 import { LabelProvider } from '@theia/core/lib/browser';
 import { EditorManager } from '@theia/editor/lib/browser';
 import { TerminalService } from '@theia/terminal/lib/browser/base/terminal-service';
@@ -26,7 +27,7 @@ import { DebugSessionOptions } from './debug-session-options';
 import { OutputChannelManager, OutputChannel } from '@theia/output/lib/browser/output-channel';
 import { DebugPreferences } from './debug-preferences';
 import { DebugSessionConnection } from './debug-session-connection';
-import { Channel, DebugAdapterPath } from '../common/debug-service';
+import { DebugAdapterPath } from '../common/debug-service';
 import { ContributionProvider } from '@theia/core/lib/common/contribution-provider';
 import { FileService } from '@theia/filesystem/lib/browser/file-service';
 import { DebugContribution } from './debug-contribution';
@@ -118,12 +119,11 @@ export class DefaultDebugSessionFactory implements DebugSessionFactory {
     get(sessionId: string, options: DebugSessionOptions, parentSession?: DebugSession): DebugSession {
         const connection = new DebugSessionConnection(
             sessionId,
-            () => new Promise<Channel>(resolve =>
-                this.connectionProvider.openChannel(`${DebugAdapterPath}/${sessionId}`, channel => {
-                    resolve(channel);
-                }, { reconnecting: false })
+            () => new Promise<Channel<string>>(
+                resolve => this.connectionProvider.openChannel(`${DebugAdapterPath}/${sessionId}`, resolve, { reconnecting: false })
             ),
-            this.getTraceOutputChannel());
+            this.getTraceOutputChannel()
+        );
         return new DebugSession(
             sessionId,
             options,
@@ -135,7 +135,8 @@ export class DefaultDebugSessionFactory implements DebugSessionFactory {
             this.labelProvider,
             this.messages,
             this.fileService,
-            this.debugContributionProvider);
+            this.debugContributionProvider
+        );
     }
 
     protected getTraceOutputChannel(): OutputChannel | undefined {
