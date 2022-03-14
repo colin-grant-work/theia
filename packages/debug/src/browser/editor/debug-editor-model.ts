@@ -17,8 +17,8 @@
 import debounce = require('p-debounce');
 import { injectable, inject, postConstruct, interfaces, Container } from '@theia/core/shared/inversify';
 import URI from '@theia/core/lib/common/uri';
-import { Disposable, DisposableCollection, MenuPath, isOSX } from '@theia/core';
-import { ContextMenuRenderer } from '@theia/core/lib/browser';
+import { Disposable, DisposableCollection, MenuPath, isOSX, MessageService } from '@theia/core';
+import { ContextMenuRenderer, LabelProvider } from '@theia/core/lib/browser';
 import { MonacoConfigurationService } from '@theia/monaco/lib/browser/monaco-frontend-module';
 import { BreakpointManager } from '../breakpoint/breakpoint-manager';
 import { DebugSourceBreakpoint } from '../model/debug-source-breakpoint';
@@ -55,11 +55,22 @@ export class DebugEditorModel implements Disposable {
 
     protected uri: URI;
 
-    protected breakpointDecorations: string[] = [];
-    protected breakpointRanges = new Map<string, monaco.Range>();
+    // protected breakpointDecorations: string[] = [];
 
+    /**
+     * The identifiers used by the Monaco editor for each breakpoint decoration.
+     * Should always be updated at the same time as {@link DebugEditorModel.currentBreakpoints}
+     */
     protected currentBreakpointDecorations: string[] = [];
+    /**
+     * The breakpoints to which the current decorations refer.
+     * Should always be updated at the same as {@link DebugEditorModel.currentBreakpointDecorations}
+     */
+    protected currentBreakpoints: DebugSourceBreakpoint[] = [];
 
+    /**
+     * Decorations indicating current stack boundaries and inline values.
+     */
     protected editorDecorations: string[] = [];
     protected topFrameRange: monaco.Range | undefined;
 
@@ -91,6 +102,12 @@ export class DebugEditorModel implements Disposable {
 
     @inject(MonacoConfigurationService)
     readonly configurationService: monaco.services.IConfigurationService;
+
+    @inject(MessageService)
+    protected readonly messageService: MessageService;
+
+    @inject(LabelProvider)
+    protected readonly labelProvider: LabelProvider;
 
     @postConstruct()
     protected init(): void {
@@ -239,49 +256,30 @@ export class DebugEditorModel implements Disposable {
     }
 
     render(): void {
-        this.renderBreakpoints();
         this.renderCurrentBreakpoints();
-    }
-    protected renderBreakpoints(): void {
-        const decorations = this.createBreakpointDecorations();
-        this.breakpointDecorations = this.deltaDecorations(this.breakpointDecorations, decorations);
-        this.updateBreakpointRanges();
-    }
-    protected createBreakpointDecorations(): monaco.editor.IModelDeltaDecoration[] {
-        const breakpoints = this.breakpoints.getBreakpoints(this.uri);
-        return breakpoints.map(breakpoint => this.createBreakpointDecoration(breakpoint));
-    }
-    protected createBreakpointDecoration(breakpoint: SourceBreakpoint): monaco.editor.IModelDeltaDecoration {
-        const lineNumber = breakpoint.raw.line;
-        const column = breakpoint.raw.column;
-        const range = typeof column === 'number' ? new monaco.Range(lineNumber, column, lineNumber, column + 1) : new monaco.Range(lineNumber, 1, lineNumber, 2);
-        return {
-            range,
-            options: {
-                stickiness: DebugEditorModel.STICKINESS
-            }
-        };
-    }
-    protected updateBreakpointRanges(): void {
-        this.breakpointRanges.clear();
-        for (const decoration of this.breakpointDecorations) {
-            const range = this.editor.getControl().getModel()!.getDecorationRange(decoration)!;
-            this.breakpointRanges.set(decoration, range);
-        }
     }
 
     protected renderCurrentBreakpoints(): void {
-        const decorations = this.createCurrentBreakpointDecorations();
+        this.currentBreakpoints = this.sessions.getBreakpoints(this.uri).slice();
+        const decorations = this.currentBreakpoints.map(breakpoint => this.createCurrentBreakpointDecoration(breakpoint));
         this.currentBreakpointDecorations = this.deltaDecorations(this.currentBreakpointDecorations, decorations);
+        this.assertDecorationSynchronicity();
     }
-    protected createCurrentBreakpointDecorations(): monaco.editor.IModelDeltaDecoration[] {
-        const breakpoints = this.sessions.getBreakpoints(this.uri);
-        return breakpoints.map(breakpoint => this.createCurrentBreakpointDecoration(breakpoint));
+
+    protected assertDecorationSynchronicity(): boolean {
+        // This shouldn't happen, but since we pass the decorations into Monaco's `deltaDecoration` apparatus, we can't absolutely guarantee that it won't.
+        if (this.currentBreakpoints.length !== this.currentBreakpointDecorations.length) {
+            this.messageService.error(`Encountered a problem processing breakpoints for ${this.labelProvider.getLongName(this.uri)}. Clearing breakpoints.`);
+            this.breakpoints.setBreakpoints(this.uri, []);
+            return false;
+        }
+        return true;
     }
+
     protected createCurrentBreakpointDecoration(breakpoint: DebugSourceBreakpoint): monaco.editor.IModelDeltaDecoration {
         const lineNumber = breakpoint.line;
         const column = breakpoint.column;
-        const range = typeof column === 'number' ? new monaco.Range(lineNumber, column, lineNumber, column + 1) : new monaco.Range(lineNumber, 1, lineNumber, 1);
+        const range = this.getRangeForBreakpoint(breakpoint);
         const { className, message } = breakpoint.getDecoration();
         const renderInline = typeof column === 'number' && (column > this.editor.getControl().getModel()!.getLineFirstNonWhitespaceColumn(lineNumber));
         return {
@@ -295,6 +293,11 @@ export class DebugEditorModel implements Disposable {
         };
     }
 
+    protected getRangeForBreakpoint(breakpoint: DebugSourceBreakpoint): monaco.Range {
+        const { line, column } = breakpoint;
+        return typeof column === 'number' ? new monaco.Range(line, column, line, column + 1) : new monaco.Range(line, 1, line, 1);
+    }
+
     protected updateBreakpoints(): void {
         if (this.areBreakpointsAffected()) {
             const breakpoints = this.createBreakpoints();
@@ -302,32 +305,48 @@ export class DebugEditorModel implements Disposable {
         }
     }
     protected areBreakpointsAffected(): boolean {
-        if (this.updatingDecorations || !this.editor.getControl().getModel()) {
+        let model;
+        if (this.updatingDecorations || !(model = this.editor.getControl().getModel())) {
             return false;
         }
-        for (const decoration of this.breakpointDecorations) {
-            const range = this.editor.getControl().getModel()!.getDecorationRange(decoration);
-            const oldRange = this.breakpointRanges.get(decoration)!;
-            if (!range || !range.equalsRange(oldRange)) {
+        for (const [breakpoint, decoration] of this.getBreakpointsAndDecorations()) {
+            const expectedRange = this.getRangeForBreakpoint(breakpoint);
+            const actualRange = model.getDecorationRange(decoration);
+            // Change in line is always a change.
+            if ((expectedRange.startLineNumber !== actualRange?.startLineNumber) || (expectedRange.endLineNumber !== actualRange.endLineNumber)) {
+                return true;
+            }
+            // For column, we have to check additionally for whether it's empty: if it's empty, then it's not an inline breakpoint, and a change of column doesn't matter.
+            if (expectedRange.startColumn === expectedRange.endColumn) {
+                return false;
+            }
+            if ((expectedRange.startColumn !== actualRange.startColumn) || (expectedRange.endColumn !== actualRange.endColumn)) {
                 return true;
             }
         }
         return false;
     }
+
+    protected *getBreakpointsAndDecorations(): IterableIterator<[DebugSourceBreakpoint, string]> {
+        if (!this.assertDecorationSynchronicity()) {
+            throw new Error('Breakpoints and decorations out of synch.');
+        }
+        for (let i = 0; i < this.currentBreakpointDecorations.length; i++) {
+            yield [this.currentBreakpoints[i], this.currentBreakpointDecorations[i]];
+        }
+    }
+
     protected createBreakpoints(): SourceBreakpoint[] {
         const { uri } = this;
         const lines = new Set<number>();
         const breakpoints: SourceBreakpoint[] = [];
-        for (const decoration of this.breakpointDecorations) {
-            const range = this.editor.getControl().getModel()!.getDecorationRange(decoration);
-            if (range && !lines.has(range.startLineNumber)) {
-                const line = range.startLineNumber;
-                const column = range.startColumn;
-                const oldRange = this.breakpointRanges.get(decoration);
-                const oldBreakpoint = oldRange && this.breakpoints.getInlineBreakpoint(uri, oldRange.startLineNumber, oldRange.startColumn);
-                const breakpoint = SourceBreakpoint.create(uri, { line, column }, oldBreakpoint);
-                breakpoints.push(breakpoint);
-                lines.add(line);
+        const model = this.editor.getControl().getModel()!;
+        for (const [breakpoint, decoration] of this.getBreakpointsAndDecorations()) {
+            const newRange = model.getDecorationRange(decoration);
+            if (newRange && !lines.has(newRange.startLineNumber)) {
+                const column = breakpoint.column === undefined ? undefined : newRange?.startColumn;
+                const newBreakpoint = SourceBreakpoint.create(uri, { line: newRange!.startLineNumber, column }, breakpoint.origin);
+                breakpoints.push(newBreakpoint);
             }
         }
         return breakpoints;
