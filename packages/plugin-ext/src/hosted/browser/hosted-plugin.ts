@@ -69,6 +69,9 @@ export type DebugActivationEvent = 'onDebugResolve' | 'onDebugInitialConfigurati
 
 export const PluginProgressLocation = 'plugin';
 
+/**
+ * Don't be fooled. This is the main entrypoint for plugins on the frontend. Hosted doesn't mean anything.
+ */
 @injectable()
 export class HostedPluginSupport {
 
@@ -185,8 +188,11 @@ export class HostedPluginSupport {
         return this.deferredDidStart.promise;
     }
 
+    protected pluginsActivated = new Set<string>();
+
     @postConstruct()
     protected init(): void {
+        setInterval(() => console.log('SENTINEL FOR ACTIVATED PLUGINS (FRONTEND)', Array.from(this.pluginsActivated)));
         this.theiaReadyPromise = Promise.all([this.preferenceServiceImpl.ready, this.workspaceService.roots]);
         this.workspaceService.onWorkspaceChanged(() => this.updateStoragePath());
 
@@ -784,6 +790,20 @@ export class HostedPluginSupport {
         </html>`;
     }
 
+    async getActivePlugins(): Promise<string[]> {
+        const active = new Set<string>();
+        await Promise.all(Array.from(this.managers.values(), manager => manager.$getActivePlugins().then(plugins => plugins.forEach(plugin => active.add(plugin)))));
+        return Array.from(active);
+    }
+
+    async isActive(pluginId: string): Promise<boolean> {
+        for (const manager of this.managers.values()) {
+            if (await manager.$isActive(pluginId)) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
 
 export class PluginContributions extends DisposableCollection {

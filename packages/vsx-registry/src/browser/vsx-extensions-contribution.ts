@@ -146,6 +146,14 @@ export class VSXExtensionsContribution extends AbstractViewContribution<VSXExten
         );
     }
 
+    protected async removeButDontImmediatelyDeactivate(): Promise<void> {
+        const maybe = this.model.installed.next().value;
+        if (maybe) {
+            const probably = this.model.getExtension(maybe);
+            probably?.uninstallSafely();
+        }
+    }
+
     /**
      * Installs a local .vsix file after prompting the `Open File` dialog. Resolves to the URI of the file.
      */

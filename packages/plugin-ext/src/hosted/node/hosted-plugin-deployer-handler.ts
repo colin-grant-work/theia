@@ -30,29 +30,29 @@ export class HostedPluginDeployerHandler implements PluginDeployerHandler {
     protected readonly logger: ILogger;
 
     @inject(HostedPluginReader)
-    private readonly reader: HostedPluginReader;
+    protected readonly reader: HostedPluginReader;
 
     @inject(HostedPluginLocalizationService)
-    private readonly localizationService: HostedPluginLocalizationService;
+    protected readonly localizationService: HostedPluginLocalizationService;
 
     @inject(Stopwatch)
     protected readonly stopwatch: Stopwatch;
 
-    private readonly deployedLocations = new Map<string, Set<string>>();
+    protected readonly deployedLocations = new Map<string, Set<string>>();
+    protected readonly originalLocations = new Map<string, string>();
 
     /**
      * Managed plugin metadata backend entries.
      */
-    private readonly deployedBackendPlugins = new Map<string, DeployedPlugin>();
-
+    protected readonly deployedBackendPlugins = new Map<string, DeployedPlugin>();
     /**
      * Managed plugin metadata frontend entries.
      */
-    private readonly deployedFrontendPlugins = new Map<string, DeployedPlugin>();
+    protected readonly deployedFrontendPlugins = new Map<string, DeployedPlugin>();
 
-    private backendPluginsMetadataDeferred = new Deferred<void>();
+    protected backendPluginsMetadataDeferred = new Deferred<void>();
 
-    private frontendPluginsMetadataDeferred = new Deferred<void>();
+    protected frontendPluginsMetadataDeferred = new Deferred<void>();
 
     async getDeployedFrontendPluginIds(): Promise<string[]> {
         // await first deploy
@@ -135,6 +135,7 @@ export class HostedPluginDeployerHandler implements PluginDeployerHandler {
             const deployedLocations = this.deployedLocations.get(metadata.model.id) || new Set<string>();
             deployedLocations.add(entry.rootPath);
             this.deployedLocations.set(metadata.model.id, deployedLocations);
+            this.originalLocations.set(metadata.model.id, entry.originalPath());
 
             const deployedPlugins = entryPoint === 'backend' ? this.deployedBackendPlugins : this.deployedFrontendPlugins;
             if (deployedPlugins.has(metadata.model.id)) {
@@ -156,6 +157,7 @@ export class HostedPluginDeployerHandler implements PluginDeployerHandler {
     async undeployPlugin(pluginId: string): Promise<boolean> {
         this.deployedBackendPlugins.delete(pluginId);
         this.deployedFrontendPlugins.delete(pluginId);
+        console.log('SENTINEL FOR DEPLOYED AND ORIGINAL', pluginId, this.originalLocations.get(pluginId), Array.from(this.deployedLocations.get(pluginId) || []));
         const deployedLocations = this.deployedLocations.get(pluginId);
         if (!deployedLocations) {
             return false;

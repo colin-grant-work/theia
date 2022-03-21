@@ -231,6 +231,9 @@ export interface PluginManagerExt {
     $activateByEvent(event: string): Promise<void>;
 
     $activatePlugin(id: string): Promise<void>;
+
+    $getActivePlugins(): Promise<string[]>;
+    $isActive(pluginId: string): Promise<boolean>;
 }
 
 export interface CommandRegistryMain {

@@ -438,6 +438,13 @@ export class PluginManagerExtImpl implements PluginManagerExt, PluginManager {
         return this.onDidChangeEmitter.event;
     }
 
+    $getActivePlugins(): Promise<string[]> {
+        return Promise.resolve(Array.from(this.activatedPlugins.keys()));
+    }
+
+    $isActive(id: string): Promise<boolean> {
+        return Promise.resolve(this.isActive(id));
+    }
 }
 
 // for electron
