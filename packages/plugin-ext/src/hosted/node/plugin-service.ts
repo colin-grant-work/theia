@@ -67,6 +67,9 @@ export class HostedPluginServerImpl implements HostedPluginServer {
     }
 
     async getDeployedPluginIds(): Promise<string[]> {
+        if (!this.hostedPlugin.isPluginServerRunning()) {
+            await this.deployerHandler.handleBeforeFork();
+        }
         const backendMetadata = await this.deployerHandler.getDeployedBackendPluginIds();
         if (backendMetadata.length > 0) {
             this.hostedPlugin.runPluginServer();
@@ -81,7 +84,7 @@ export class HostedPluginServerImpl implements HostedPluginServer {
         for (const pluginId of await this.hostedPlugin.getExtraDeployedPluginIds()) {
             plugins.add(pluginId);
         }
-        return [...plugins.values()];
+        return Array.from(plugins);
     }
 
     async getDeployedPlugins({ pluginIds }: GetDeployedPluginsParams): Promise<DeployedPlugin[]> {

@@ -22,6 +22,7 @@ import { HostedPluginReader } from './plugin-reader';
 import { Deferred } from '@theia/core/lib/common/promise-util';
 import { HostedPluginLocalizationService } from './hosted-plugin-localization-service';
 import { Stopwatch } from '@theia/core/lib/common';
+import { EnvVariablesServer } from '@theia/core/src/common/env-variables';
 
 @injectable()
 export class HostedPluginDeployerHandler implements PluginDeployerHandler {
@@ -34,6 +35,9 @@ export class HostedPluginDeployerHandler implements PluginDeployerHandler {
 
     @inject(HostedPluginLocalizationService)
     protected readonly localizationService: HostedPluginLocalizationService;
+
+    @inject(EnvVariablesServer)
+    protected readonly envServer: EnvVariablesServer;
 
     @inject(Stopwatch)
     protected readonly stopwatch: Stopwatch;
@@ -53,6 +57,8 @@ export class HostedPluginDeployerHandler implements PluginDeployerHandler {
     protected backendPluginsMetadataDeferred = new Deferred<void>();
 
     protected frontendPluginsMetadataDeferred = new Deferred<void>();
+
+    protected toDisposeOnReconnect: Array<{ dispose(): Promise<unknown> }> = [];
 
     async getDeployedFrontendPluginIds(): Promise<string[]> {
         // await first deploy
@@ -148,7 +154,10 @@ export class HostedPluginDeployerHandler implements PluginDeployerHandler {
             deployed.contributes = this.reader.readContribution(manifest);
             this.localizationService.deployLocalizations(deployed);
             deployedPlugins.set(metadata.model.id, deployed);
-            deployPlugin.log(`Deployed ${entryPoint} plugin "${metadata.model.name}@${metadata.model.version}" from "${metadata.model.entryPoint[entryPoint] || pluginPath}"`);
+            deployPlugin.log(
+                `Deployed ${entryPoint} plugin "${metadata.model.name}@${metadata.model.version}"`
+                + ` from "${metadata.model.entryPoint[entryPoint] || pluginPath}", to ${entry.rootPath}. Maybe from ${entry.originalPath()}`,
+            );
         } catch (e) {
             deployPlugin.error(`Failed to deploy ${entryPoint} plugin from '${pluginPath}' path`, e);
         }
@@ -175,6 +184,31 @@ export class HostedPluginDeployerHandler implements PluginDeployerHandler {
             }
         }
 
+        return true;
+    }
+
+    async handleBeforeFork(): Promise<void> {
+        console.log('SENTINEL FOR UNDEPLOYING SOME PLUGINS');
+        await Promise.all(this.toDisposeOnReconnect.map(undeployment => undeployment.dispose()));
+    }
+
+    async undeployPluginSafely(pluginId: string): Promise<boolean> {
+        const originalLocation = this.originalLocations.get(pluginId);
+        const deployedLocations = this.deployedLocations.get(pluginId);
+        if (!originalLocation) {
+            return false;
+        }
+        this.toDisposeOnReconnect.push({ dispose: () => this.undeployPlugin(pluginId) });
+        if (!deployedLocations?.has(originalLocation)) {
+            try {
+                console.log(`[${pluginId}] Deleting source files from ${originalLocation}.`);
+                await fs.remove(originalLocation);
+            } catch {
+                console.error(`[${pluginId}]: Failed to remove source files.`);
+            }
+        } else {
+            console.warn(`[${pluginId}] Cannot remove source files. It is deployed in its original location: ${originalLocation}. Plugin will be uninstalled on restart.`);
+        }
         return true;
     }
 }

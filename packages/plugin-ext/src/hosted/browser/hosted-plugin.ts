@@ -188,11 +188,8 @@ export class HostedPluginSupport {
         return this.deferredDidStart.promise;
     }
 
-    protected pluginsActivated = new Set<string>();
-
     @postConstruct()
     protected init(): void {
-        setInterval(() => console.log('SENTINEL FOR ACTIVATED PLUGINS (FRONTEND)', Array.from(this.pluginsActivated)));
         this.theiaReadyPromise = Promise.all([this.preferenceServiceImpl.ready, this.workspaceService.roots]);
         this.workspaceService.onWorkspaceChanged(() => this.updateStoragePath());
 

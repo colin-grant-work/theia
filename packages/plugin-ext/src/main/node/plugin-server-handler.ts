@@ -46,6 +46,10 @@ export class PluginServerHandler implements PluginServer {
         return this.pluginDeployer.undeploy(pluginId);
     }
 
+    undeploySafely(pluginId: string): Promise<void> {
+        return this.pluginDeployer.undeploySafely(pluginId);
+    }
+
     setStorageValue(key: string, value: KeysToAnyValues, kind: PluginStorageKind): Promise<boolean> {
         return this.pluginsKeyValueStorage.set(key, value, kind);
     }

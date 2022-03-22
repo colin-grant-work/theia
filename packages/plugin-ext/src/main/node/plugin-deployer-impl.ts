@@ -141,6 +141,10 @@ export class PluginDeployerImpl implements PluginDeployer {
         }
     }
 
+    async undeploySafely(pluginId: string): Promise<void> {
+        await this.pluginDeployerHandler.undeployPluginSafely(pluginId);
+    }
+
     async deploy(plugin: UnresolvedPluginEntry): Promise<void> {
         const deploy = this.measure('deploy');
         await this.deployMultipleEntries([plugin]);

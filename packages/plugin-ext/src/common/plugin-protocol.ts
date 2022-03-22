@@ -831,6 +831,7 @@ export interface PluginDeployerHandler {
 
     getDeployedPlugin(pluginId: string): DeployedPlugin | undefined;
     undeployPlugin(pluginId: string): Promise<boolean>;
+    undeployPluginSafely(pluginId: string): Promise<boolean>;
 
     getPluginDependencies(pluginToBeInstalled: PluginDeployerEntry): Promise<PluginDependencies | undefined>;
 }
@@ -885,6 +886,7 @@ export interface PluginServer {
     deploy(pluginEntry: string, type?: PluginType): Promise<void>;
 
     undeploy(pluginId: string): Promise<void>;
+    undeploySafely(pluginId: string): Promise<void>;
 
     setStorageValue(key: string, value: KeysToAnyValues, kind: PluginStorageKind): Promise<boolean>;
     getStorageValue(key: string, kind: PluginStorageKind): Promise<KeysToAnyValues>;

@@ -166,7 +166,7 @@ export class PreferenceTransaction extends Transaction<[string, string[], unknow
     @inject(EditorManager) protected readonly editorManager: EditorManager;
 
     protected async setUp(): Promise<boolean> {
-        const reference = await this.textModelService.createModelReference(this.context.getConfigUri()!);
+        const reference = await this.textModelService.createModelReference(this.context.getConfigUri());
         if (this._open) {
             this.reference = reference;
         } else {

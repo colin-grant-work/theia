@@ -304,6 +304,15 @@ export class VSXExtension implements VSXExtensionData, TreeElement {
         }
     }
 
+    async uninstallSafely(): Promise<void> {
+        this._busy++;
+        try {
+            await this.pluginServer.undeploySafely(this.id);
+        } catch {
+
+        }
+    }
+
     handleContextMenu(e: React.MouseEvent<HTMLElement, MouseEvent>): void {
         e.preventDefault();
         this.contextMenuRenderer.render({

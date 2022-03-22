@@ -106,6 +106,9 @@ export class VSXExtensionsContribution extends AbstractViewContribution<VSXExten
         commands.registerCommand(VSXExtensionsCommands.SHOW_RECOMMENDATIONS, {
             execute: () => this.showRecommendedExtensions()
         });
+        commands.registerCommand({ id: 'test-uninstallation-without-deactivation', label: 'Safely uninstall your first plugin.' }, {
+            execute: () => this.removeButDontImmediatelyDeactivate(),
+        });
     }
 
     override registerMenus(menus: MenuModelRegistry): void {
@@ -147,11 +150,15 @@ export class VSXExtensionsContribution extends AbstractViewContribution<VSXExten
     }
 
     protected async removeButDontImmediatelyDeactivate(): Promise<void> {
-        const maybe = this.model.installed.next().value;
-        if (maybe) {
-            const probably = this.model.getExtension(maybe);
-            probably?.uninstallSafely();
+        let maybe;
+        for (const extensionId of this.model.installed) {
+            const extension = this.model.getExtension(extensionId);
+            if (extension && !extension.builtin) {
+                maybe = extension;
+                break;
+            }
         }
+        maybe?.uninstallSafely();
     }
 
     /**

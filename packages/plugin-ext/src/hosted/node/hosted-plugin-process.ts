@@ -127,6 +127,7 @@ export class HostedPluginProcess implements ServerPluginRunner {
     }
 
     killProcessTree(parentPid: number): void {
+        console.log('SENTINEL FOR TERMINATING', new Error());
         psTree(parentPid, (_, childProcesses) => {
             childProcesses.forEach(childProcess =>
                 this.killProcess(parseInt(childProcess.PID))
@@ -165,7 +166,7 @@ export class HostedPluginProcess implements ServerPluginRunner {
 
     readonly HOSTED_PLUGIN_ENV_REGEXP_EXCLUSION = new RegExp('HOSTED_PLUGIN*');
     private fork(options: IPCConnectionOptions): cp.ChildProcess {
-
+        console.log('SENTINEL FOR STARTING A PLUGIN PROCESS', new Error());
         // create env and add PATH to it so any executable from root process is available
         const env = createIpcEnv({ env: process.env });
         for (const key of Object.keys(env)) {

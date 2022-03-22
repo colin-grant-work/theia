@@ -35,7 +35,7 @@ export type ConnectionContainerModuleCallBack = (registry: {
 /**
  * ### Connection Container Module
  *
- * It provides bindings which are scoped per a connection, e.g.
+ * It provides bindings which are scoped per connection, e.g.
  * in order to allow backend services to access frontend service within the same connection.
  *
  * #### Binding a frontend service

@@ -29,8 +29,8 @@ export interface IPCConnectionOptions {
 
 @injectable()
 export class HostedPluginSupport {
-    private isPluginProcessRunning = false;
-    private client: HostedPluginClient;
+    protected isPluginProcessRunning = false;
+    protected client: HostedPluginClient;
 
     @inject(ILogger)
     protected readonly logger: ILogger;
@@ -43,7 +43,7 @@ export class HostedPluginSupport {
      */
     @optional()
     @multiInject(ServerPluginRunner)
-    private readonly pluginRunners: ServerPluginRunner[];
+    protected readonly pluginRunners: ServerPluginRunner[];
 
     @postConstruct()
     protected init(): void {
@@ -85,6 +85,10 @@ export class HostedPluginSupport {
         }
     }
 
+    isPluginServerRunning(): boolean {
+        return this.isPluginProcessRunning;
+    }
+
     runPluginServer(): void {
         if (!this.isPluginProcessRunning) {
             this.hostedPluginProcess.runPluginServer();
@@ -110,7 +114,7 @@ export class HostedPluginSupport {
         this.client.log(logPart);
     }
 
-    private terminatePluginServer(): void {
+    protected terminatePluginServer(): void {
         this.hostedPluginProcess.terminatePluginServer();
     }
 }
