@@ -21,7 +21,7 @@ import {
     PluginDeployerResolver, PluginDeployerFileHandler, PluginDeployerDirectoryHandler,
     PluginDeployerEntry, PluginDeployer, PluginDeployerParticipant, PluginDeployerStartContext,
     PluginDeployerResolverInit, PluginDeployerFileHandlerContext,
-    PluginDeployerDirectoryHandlerContext, PluginDeployerEntryType, PluginDeployerHandler, PluginType, UnresolvedPluginEntry
+    PluginDeployerDirectoryHandlerContext, PluginDeployerEntryType, PluginDeployerHandler, PluginType, UnresolvedPluginEntry, HostedPluginServer
 } from '../../common/plugin-protocol';
 import { PluginDeployerEntryImpl } from './plugin-deployer-entry-impl';
 import {
@@ -31,7 +31,7 @@ import {
 import { ProxyPluginDeployerEntry } from './plugin-deployer-proxy-entry-impl';
 import { PluginDeployerFileHandlerContextImpl } from './plugin-deployer-file-handler-context-impl';
 import { PluginDeployerDirectoryHandlerContextImpl } from './plugin-deployer-directory-handler-context-impl';
-import { ILogger, Emitter, ContributionProvider } from '@theia/core';
+import { ILogger, Emitter, ContributionProvider, Disposable } from '@theia/core';
 import { PluginCliContribution } from './plugin-cli-contribution';
 import { Measurement, Stopwatch } from '@theia/core/lib/common';
 
@@ -40,6 +40,7 @@ export class PluginDeployerImpl implements PluginDeployer {
 
     protected readonly onDidDeployEmitter = new Emitter<void>();
     readonly onDidDeploy = this.onDidDeployEmitter.event;
+    protected readonly servers: HostedPluginServer[] = [];
 
     @inject(ILogger)
     protected readonly logger: ILogger;
@@ -77,6 +78,16 @@ export class PluginDeployerImpl implements PluginDeployer {
     public start(): void {
         this.logger.debug('Starting the deployer with the list of resolvers', this.pluginResolvers);
         this.doStart();
+    }
+
+    registerPluginServer(server: HostedPluginServer): Disposable {
+        this.servers.push(server);
+        return Disposable.create(() => {
+            const idx = this.servers.indexOf(server);
+            if (idx !== -1) {
+                this.servers.splice(idx, 1);
+            }
+        });
     }
 
     public async initResolvers(): Promise<Array<void>> {
@@ -142,7 +153,34 @@ export class PluginDeployerImpl implements PluginDeployer {
     }
 
     async undeploySafely(pluginId: string): Promise<void> {
+        const dependents = this.getDependentsOf(pluginId);
+        if (dependents.length) {
+            throw new Error(`Cannot uninstall ${pluginId} because it is depended on by ${dependents.join(', ')}.`);
+        }
+        this.markAsUninstalled(pluginId);
         await this.pluginDeployerHandler.undeployPluginSafely(pluginId);
+    }
+
+    protected async handleDeferredUninstallation(): Promise<void> {
+        if (this.servers.length === 0) {
+            await this.getToUninstall().then(toUninstall => Promise.all(toUninstall.map(plugin => this.pluginDeployerHandler.undeployPluginSafely(plugin))));
+        }
+    }
+
+    protected getToUninstall(): Promise<string[]> {
+        return new Error("You haven't written me yet.");
+    }
+
+    protected isActive(pluginId: string): Promise<boolean> {
+        return new Error("You haven't written me yet.");
+    }
+
+    protected markAsUninstalled(pluginId: string): void {
+        return new Error("You haven't written me yet.");
+    }
+
+    protected getDependentsOf(pluginId: string): string[] {
+        return void 0;
     }
 
     async deploy(plugin: UnresolvedPluginEntry): Promise<void> {

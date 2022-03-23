@@ -849,6 +849,9 @@ export interface DeployedPlugin {
     contributes?: PluginContribution;
 }
 
+/**
+ * This symbol will be bound in connection scope.
+ */
 export const HostedPluginServer = Symbol('HostedPluginServer');
 export interface HostedPluginServer extends JsonRpcServer<HostedPluginClient> {
 

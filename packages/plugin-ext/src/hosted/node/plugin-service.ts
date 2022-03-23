@@ -16,12 +16,15 @@
 import { injectable, inject, named, postConstruct } from '@theia/core/shared/inversify';
 import { HostedPluginServer, HostedPluginClient, PluginDeployer, GetDeployedPluginsParams, DeployedPlugin } from '../../common/plugin-protocol';
 import { HostedPluginSupport } from './hosted-plugin';
-import { ILogger, Disposable, ContributionProvider } from '@theia/core';
+import { ILogger, Disposable, ContributionProvider, DisposableCollection } from '@theia/core';
 import { ExtPluginApiProvider, ExtPluginApi } from '../../common/plugin-ext-api-contribution';
 import { HostedPluginDeployerHandler } from './hosted-plugin-deployer-handler';
 import { PluginDeployerImpl } from '../../main/node/plugin-deployer-impl';
 import { HostedPluginLocalizationService } from './hosted-plugin-localization-service';
 
+/**
+ * This class is scoped to a single connection.
+ */
 @injectable()
 export class HostedPluginServerImpl implements HostedPluginServer {
     @inject(ILogger)
@@ -44,23 +47,25 @@ export class HostedPluginServerImpl implements HostedPluginServer {
 
     protected deployedListener: Disposable;
 
+    protected readonly toDispose = new DisposableCollection();
+
     constructor(
         @inject(HostedPluginSupport) private readonly hostedPlugin: HostedPluginSupport) {
     }
 
     @postConstruct()
     protected init(): void {
-        this.deployedListener = this.pluginDeployer.onDidDeploy(() => {
-            if (this.client) {
-                this.client.onDidDeploy();
-            }
-        });
+        this.toDispose.pushAll([
+            this.pluginDeployer.registerPluginServer(this),
+            this.deployedListener = this.pluginDeployer.onDidDeploy(() => this.client?.onDidDeploy()),
+            Disposable.create(() => this.hostedPlugin.clientClosed()),
+        ]);
     }
 
     dispose(): void {
-        this.hostedPlugin.clientClosed();
-        this.deployedListener.dispose();
+        this.toDispose.dispose();
     }
+
     setClient(client: HostedPluginClient): void {
         this.client = client;
         this.hostedPlugin.setClient(client);

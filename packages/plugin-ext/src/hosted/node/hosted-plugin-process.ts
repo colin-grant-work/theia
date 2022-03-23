@@ -37,6 +37,9 @@ export interface HostedPluginProcessConfiguration {
     readonly path: string
 }
 
+/**
+ * This class is scoped to a single connection.
+ */
 @injectable()
 export class HostedPluginProcess implements ServerPluginRunner {
 

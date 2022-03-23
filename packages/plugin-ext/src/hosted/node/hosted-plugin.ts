@@ -27,6 +27,9 @@ export interface IPCConnectionOptions {
     readonly errorHandler?: ConnectionErrorHandler;
 }
 
+/**
+ * This class is scoped to a single connection.
+ */
 @injectable()
 export class HostedPluginSupport {
     protected isPluginProcessRunning = false;
