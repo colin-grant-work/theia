@@ -1297,6 +1297,15 @@ export module '@theia/plugin' {
         static parse(value: string): Uri;
 
         /**
+         * Create an URI from its component parts
+         *
+         * @see {@link Uri.toString}
+         * @param components The component parts of an Uri.
+         * @return A new Uri instance.
+         */
+        static from(components: { readonly scheme: string; readonly authority?: string; readonly path?: string; readonly query?: string; readonly fragment?: string }): Uri;
+
+        /**
          * Use the `file` and `parse` factory functions to create new `Uri` objects.
          */
         private constructor(scheme: string, authority: string, path: string, query: string, fragment: string);
@@ -2069,8 +2078,8 @@ export module '@theia/plugin' {
     /**
      * Represents an item that can be selected from a list of items.
      */
-    export interface QuickPickItem {
-        type?: 'item' | 'separator';
+    export interface QuickPickItemValue {
+        type?: 'item';
         /**
          * The item label
          */
@@ -2096,6 +2105,13 @@ export module '@theia/plugin' {
          */
         alwaysShow?: boolean;
     }
+
+    export interface QuickPickSeparator {
+        type: 'separator';
+        label?: string;
+    }
+
+    export type QuickPickItem = QuickPickSeparator | QuickPickItemValue;
 
     /**
      * A concrete [QuickInput](#QuickInput) to let the user pick an item from a
