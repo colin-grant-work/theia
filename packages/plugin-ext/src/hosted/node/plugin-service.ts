@@ -116,6 +116,10 @@ export class HostedPluginServerImpl implements HostedPluginServer {
         return Promise.all(plugins.map(plugin => this.localizationService.localizePlugin(plugin)));
     }
 
+    async getActivePluginIds(): Promise<string[]> {
+        return (await this.client?.getActivePlugins()) ?? [];
+    }
+
     onMessage(pluginHostId: string, message: string): Promise<void> {
         this.hostedPlugin.onMessage(pluginHostId, message);
         return Promise.resolve();

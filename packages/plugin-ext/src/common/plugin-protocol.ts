@@ -817,6 +817,8 @@ export interface HostedPluginClient {
     log(logPart: LogPart): void;
 
     onDidDeploy(): void;
+
+    getActivePlugins(): Promise<string[]>;
 }
 
 export interface PluginDependencies {
@@ -863,6 +865,7 @@ export interface HostedPluginServer extends JsonRpcServer<HostedPluginClient> {
 
     onMessage(targetHost: string, message: string): Promise<void>;
 
+    getActivePluginIds(): Promise<string[]>;
 }
 
 export const PLUGIN_HOST_BACKEND = 'main';

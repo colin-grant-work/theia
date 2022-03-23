@@ -29,7 +29,7 @@ import { HostedPluginSupport } from '../../hosted/browser/hosted-plugin';
 import { HostedPluginWatcher } from '../../hosted/browser/hosted-plugin-watcher';
 import { OpenUriCommandHandler } from './commands';
 import { PluginApiFrontendContribution } from './plugin-frontend-contribution';
-import { HostedPluginServer, hostedServicePath, PluginServer, pluginServerJsonRpcPath } from '../../common/plugin-protocol';
+import { HostedPluginClient, HostedPluginServer, hostedServicePath, PluginServer, pluginServerJsonRpcPath } from '../../common/plugin-protocol';
 import { ModalNotification } from './dialogs/modal-notification';
 import { PluginWidget } from './plugin-ext-widget';
 import { PluginFrontendViewContribution } from './plugin-frontend-view-contribution';
@@ -118,7 +118,12 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
     bind(HostedPluginServer).toDynamicValue(ctx => {
         const connection = ctx.container.get(WebSocketConnectionProvider);
         const hostedWatcher = ctx.container.get(HostedPluginWatcher);
-        return connection.createProxy<HostedPluginServer>(hostedServicePath, hostedWatcher.getHostedPluginClient());
+        const client = hostedWatcher.getHostedPluginClient();
+        setTimeout(() => {
+            const support = ctx.container.get(HostedPluginSupport);
+            (<HostedPluginClient>client).getActivePlugins = () => support.getActivePlugins();
+        }, 10);
+        return connection.createProxy<HostedPluginServer>(hostedServicePath, client);
     }).inSingletonScope();
 
     bind(PluginPathsService).toDynamicValue(ctx => {

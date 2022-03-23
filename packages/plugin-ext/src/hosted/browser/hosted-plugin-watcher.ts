@@ -27,7 +27,7 @@ export class HostedPluginWatcher {
     private readonly onDidDeployEmitter = new Emitter<void>();
     readonly onDidDeploy = this.onDidDeployEmitter.event;
 
-    getHostedPluginClient(): HostedPluginClient {
+    getHostedPluginClient(): Omit<HostedPluginClient, 'getActivePlugins'> {
         const messageEmitter = this.onPostMessage;
         const logEmitter = this.onLogMessage;
         return {

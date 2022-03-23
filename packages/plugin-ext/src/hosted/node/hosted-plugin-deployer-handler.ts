@@ -22,7 +22,6 @@ import { HostedPluginReader } from './plugin-reader';
 import { Deferred } from '@theia/core/lib/common/promise-util';
 import { HostedPluginLocalizationService } from './hosted-plugin-localization-service';
 import { Stopwatch } from '@theia/core/lib/common';
-import { EnvVariablesServer } from '@theia/core/src/common/env-variables';
 
 @injectable()
 export class HostedPluginDeployerHandler implements PluginDeployerHandler {
@@ -35,9 +34,6 @@ export class HostedPluginDeployerHandler implements PluginDeployerHandler {
 
     @inject(HostedPluginLocalizationService)
     protected readonly localizationService: HostedPluginLocalizationService;
-
-    @inject(EnvVariablesServer)
-    protected readonly envServer: EnvVariablesServer;
 
     @inject(Stopwatch)
     protected readonly stopwatch: Stopwatch;

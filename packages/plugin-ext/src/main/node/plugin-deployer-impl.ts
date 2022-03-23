@@ -34,6 +34,9 @@ import { PluginDeployerDirectoryHandlerContextImpl } from './plugin-deployer-dir
 import { ILogger, Emitter, ContributionProvider, Disposable } from '@theia/core';
 import { PluginCliContribution } from './plugin-cli-contribution';
 import { Measurement, Stopwatch } from '@theia/core/lib/common';
+import { EnvVariablesServer } from '@theia/core/lib/common/env-variables';
+import * as nodeFS from 'fs';
+import URI from '@theia/core/lib/common/uri';
 
 @injectable()
 export class PluginDeployerImpl implements PluginDeployer {
@@ -53,6 +56,9 @@ export class PluginDeployerImpl implements PluginDeployer {
 
     @inject(Stopwatch)
     protected readonly stopwatch: Stopwatch;
+
+    @inject(EnvVariablesServer)
+    protected readonly environmentVariables: EnvVariablesServer;
 
     /**
      * Inject all plugin resolvers found at runtime.
@@ -153,11 +159,12 @@ export class PluginDeployerImpl implements PluginDeployer {
     }
 
     async undeploySafely(pluginId: string): Promise<void> {
-        const dependents = this.getDependentsOf(pluginId);
-        if (dependents.length) {
-            throw new Error(`Cannot uninstall ${pluginId} because it is depended on by ${dependents.join(', ')}.`);
-        }
-        this.markAsUninstalled(pluginId);
+        console.log("SENTINEL: I'M NOT GOING TO DO THAT, BUT HERE ARE THE ACTIVE PLUGINS", (await Promise.all(this.servers.map(server => server.getActivePluginIds()))));
+        // const dependents = this.getDependentsOf(pluginId);
+        // if (dependents.length) {
+        //     throw new Error(`Cannot uninstall ${pluginId} because it is depended on by ${dependents.join(', ')}.`);
+        // }
+        // this.markAsUninstalled(pluginId);
         await this.pluginDeployerHandler.undeployPluginSafely(pluginId);
     }
 
@@ -167,21 +174,36 @@ export class PluginDeployerImpl implements PluginDeployer {
         }
     }
 
-    protected getToUninstall(): Promise<string[]> {
-        return new Error("You haven't written me yet.");
+    protected async getToUninstall(): Promise<string[]> {
+        try {
+            const toUninstallPath = await this.getToUninstallPath();
+            const maybeToUninstall = JSON.parse(await nodeFS.promises.readFile(toUninstallPath, 'utf-8'));
+            if (Array.isArray(maybeToUninstall) && maybeToUninstall.every(item => typeof item === 'string')) {
+                return maybeToUninstall;
+            }
+        } catch { }
+        return [];
     }
 
-    protected isActive(pluginId: string): Promise<boolean> {
-        return new Error("You haven't written me yet.");
+    protected async clearToUninstall(): Promise<void> {
+        return nodeFS.promises.writeFile(await this.getToUninstallPath(), '[]');
     }
 
-    protected markAsUninstalled(pluginId: string): void {
-        return new Error("You haven't written me yet.");
+    protected async getToUninstallPath(): Promise<string> {
+        return new URI(await this.environmentVariables.getConfigDirUri()).resolve('extensions').resolve('.to-uninstall')['codeUri'].fsPath;
     }
 
-    protected getDependentsOf(pluginId: string): string[] {
-        return void 0;
-    }
+    // protected isActive(pluginId: string): Promise<boolean> {
+    //     return new Error("You haven't written me yet.");
+    // }
+
+    // protected markAsUninstalled(pluginId: string): void {
+    //     return new Error("You haven't written me yet.");
+    // }
+
+    // protected getDependentsOf(pluginId: string): string[] {
+    //     return void 0;
+    // }
 
     async deploy(plugin: UnresolvedPluginEntry): Promise<void> {
         const deploy = this.measure('deploy');
@@ -241,6 +263,7 @@ export class PluginDeployerImpl implements PluginDeployer {
                             }
                         }
                     }
+                    console.log('SENTINEL FOR WHAT WE KNOW ABOUT DEPENDENCIES AT THE END OF ALL OF THAT:', dependenciesChunk);
                 } catch (e) {
                     console.error(`Failed to resolve plugins from '${id}'`, e);
                 }
