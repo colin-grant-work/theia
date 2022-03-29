@@ -46,97 +46,61 @@ export class GithubPluginDeployerResolver implements PluginDeployerResolver {
      * Grab the remote file specified by Github URL
      */
     async resolve(pluginResolverContext: PluginDeployerResolverContext): Promise<void> {
+        const originId = pluginResolverContext.getOriginId();
+        const extracted = /^github:(.*)\/(.*)\/(.*)$/gm.exec(originId);
+        if (extracted?.length !== 4) {
+            throw new Error(`Invalid extension: ${originId}`);
+        }
 
-        // download the file
-        return new Promise<void>((resolve, reject) => {
-            // extract data
-            const extracted = /^github:(.*)\/(.*)\/(.*)$/gm.exec(pluginResolverContext.getOriginId());
-            if (!extracted || extracted === null || extracted.length !== 4) {
-                reject(new Error('Invalid extension' + pluginResolverContext.getOriginId()));
-                return;
-            }
+        const [, orgName, repoName, file] = extracted;
+        const [filename, version = 'latest'] = file.split('@');
 
-            const orgName = extracted[1];
-            const repoName = extracted[2];
-            const file = extracted[3];
+        const versionToFetch = version === 'latest'
+            ? await this.getLatestVersion(`${GithubPluginDeployerResolver.GITHUB_ENDPOINT}${orgName}/${repoName}/releases/latest`)
+            : version;
 
-            // get version if any
-            const splitFile = file.split('@');
-            let version;
-            let filename: string;
-            if (splitFile.length === 1) {
-                filename = file;
-                version = 'latest';
-            } else {
-                filename = splitFile[0];
-                version = splitFile[1];
-            }
-            // latest version, need to get the redirect
-            const url = GithubPluginDeployerResolver.GITHUB_ENDPOINT + orgName + '/' + repoName + '/releases/latest';
+        const unpackedLocation = await this.grabGithubFile(pluginResolverContext, orgName, repoName, filename, versionToFetch);
 
-            // disable redirect to grab the release
-            const options = {
-                followRedirect: false
-            };
-            // if latest, resolve first the real version
-            if (version === 'latest') {
-                request.get(url, options).on('response', response => {
+        pluginResolverContext.addPlugin(originId, unpackedLocation);
+    }
 
-                    // should have a redirect
-                    if (response.statusCode === 302) {
-                        const redirectLocation = response.headers.location;
-                        if (!redirectLocation) {
-                            reject(new Error('Invalid github link with latest not being found'));
-                            return;
-                        }
-
-                        // parse redirect link
-                        const taggedValueArray = /^https:\/\/.*tag\/(.*)/gm.exec(redirectLocation);
-                        if (!taggedValueArray || taggedValueArray.length !== 2) {
-                            reject(new Error('The redirect link for latest is invalid ' + redirectLocation));
-                            return;
-                        }
-
-                        // grab version of tag
-                        this.grabGithubFile(pluginResolverContext, orgName, repoName, filename, taggedValueArray[1], resolve, reject);
-
-                    }
-                });
-            } else {
-                this.grabGithubFile(pluginResolverContext, orgName, repoName, filename, version, resolve, reject);
-            }
-
+    protected async getLatestVersion(url: string): Promise<string> {
+        const response = await new Promise<request.Response>((resolve, reject) => {
+            const options = { followRedirect: false };
+            request.get(url, options).on('response', resolve).on('error', reject);
         });
-
+        const { statusCode, headers: { location } } = response;
+        // should have a redirect
+        if (statusCode === 302 && location) {
+            // parse redirect link
+            const taggedValueArray = /^https:\/\/.*tag\/(.*)/gm.exec(location);
+            if (taggedValueArray?.length !== 2) {
+                throw new Error('The redirect link for latest is invalid ' + location);
+            }
+            return taggedValueArray[1];
+        }
+        throw new Error('Invalid GitHub link: latest version could not be determined.');
     }
 
     /*
      * Grab the github file specified by the plugin's ID
      */
-    protected grabGithubFile(pluginResolverContext: PluginDeployerResolverContext, orgName: string, repoName: string, filename: string, version: string,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolve: (value?: void | PromiseLike<void>) => void, reject: (reason?: any) => void): void {
+    protected async grabGithubFile(pluginResolverContext: PluginDeployerResolverContext, orgName: string, repoName: string, filename: string, version: string): Promise<string> {
 
         const unpackedPath = path.resolve(this.unpackedFolder, path.basename(version + filename));
-        const finish = () => {
-            pluginResolverContext.addPlugin(pluginResolverContext.getOriginId(), unpackedPath);
-            resolve();
-        };
 
-        // use of cache. If file is already there use it directly
-        if (fs.existsSync(unpackedPath)) {
-            finish();
-            return;
+        // If file already exists, no need to download.
+        if (!fs.existsSync(unpackedPath)) {
+            await new Promise((resolve, reject) => {
+                const dest = fs.createWriteStream(unpackedPath).once('finish', resolve);
+
+                const url = GithubPluginDeployerResolver.GITHUB_ENDPOINT + orgName + '/' + repoName + '/releases/download/' + version + '/' + filename;
+
+                request.get(url).on('error', reject).pipe(dest);
+            });
         }
-        const dest = fs.createWriteStream(unpackedPath);
 
-        dest.addListener('finish', finish);
-        const url = GithubPluginDeployerResolver.GITHUB_ENDPOINT + orgName + '/' + repoName + '/releases/download/' + version + '/' + filename;
-        request.get(url)
-            .on('error', err => {
-                reject(err);
-            }).pipe(dest);
-
+        return unpackedPath;
     }
 
     /**
