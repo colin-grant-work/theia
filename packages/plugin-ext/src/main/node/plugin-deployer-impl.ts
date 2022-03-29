@@ -316,8 +316,8 @@ export class PluginDeployerImpl implements PluginDeployer {
     public async applyFileHandlers(pluginDeployerEntries: PluginDeployerEntry[]): Promise<any> {
         const waitPromises: Array<Promise<any>> = [];
 
-        pluginDeployerEntries.filter(pluginDeployerEntry => pluginDeployerEntry.isResolved()).map(pluginDeployerEntry => {
-            this.pluginDeployerFileHandlers.map(pluginFileHandler => {
+        pluginDeployerEntries.filter(pluginDeployerEntry => pluginDeployerEntry.isResolved()).forEach(pluginDeployerEntry => {
+            this.pluginDeployerFileHandlers.forEach(pluginFileHandler => {
                 const proxyPluginDeployerEntry = new ProxyPluginDeployerEntry(pluginFileHandler, (pluginDeployerEntry) as PluginDeployerEntryImpl);
                 if (pluginFileHandler.accept(proxyPluginDeployerEntry)) {
                     const pluginDeployerFileHandlerContext: PluginDeployerFileHandlerContext = new PluginDeployerFileHandlerContextImpl(proxyPluginDeployerEntry);
@@ -336,8 +336,8 @@ export class PluginDeployerImpl implements PluginDeployer {
     public async applyDirectoryFileHandlers(pluginDeployerEntries: PluginDeployerEntry[]): Promise<any> {
         const waitPromises: Array<Promise<any>> = [];
 
-        pluginDeployerEntries.filter(pluginDeployerEntry => pluginDeployerEntry.isResolved()).map(pluginDeployerEntry => {
-            this.pluginDeployerDirectoryHandlers.map(pluginDirectoryHandler => {
+        pluginDeployerEntries.filter(pluginDeployerEntry => pluginDeployerEntry.isResolved()).forEach(pluginDeployerEntry => {
+            this.pluginDeployerDirectoryHandlers.forEach(pluginDirectoryHandler => {
                 const proxyPluginDeployerEntry = new ProxyPluginDeployerEntry(pluginDirectoryHandler, (pluginDeployerEntry) as PluginDeployerEntryImpl);
                 if (pluginDirectoryHandler.accept(proxyPluginDeployerEntry)) {
                     const pluginDeployerDirectoryHandlerContext: PluginDeployerDirectoryHandlerContext = new PluginDeployerDirectoryHandlerContextImpl(proxyPluginDeployerEntry);
