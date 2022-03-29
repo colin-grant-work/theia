@@ -45,19 +45,15 @@ export class PluginVsCodeFileHandler implements PluginDeployerFileHandler {
         console.log(`[${id}]: trying to decompress into "${extensionDir}"...`);
         if (context.pluginEntry().type === PluginType.User && await fs.pathExists(extensionDir)) {
             console.log(`[${id}]: already found`);
-            context.pluginEntry().updatePath(extensionDir);
-            return;
+        } else {
+            await this.decompress(extensionDir, context);
+            console.log(`[${id}]: decompressed`);
         }
-        await this.decompress(extensionDir, context);
-        console.log(`[${id}]: decompressed`);
         context.pluginEntry().updatePath(extensionDir);
     }
 
     protected async getExtensionDir(context: PluginDeployerFileHandlerContext): Promise<string> {
-        let extensionsDirUri = this.systemExtensionsDirUri;
-        if (context.pluginEntry().type === PluginType.User) {
-            extensionsDirUri = await this.environment.getExtensionsDirUri();
-        }
+        const extensionsDirUri = this.systemExtensionsDirUri;
         return FileUri.fsPath(extensionsDirUri.resolve(filenamify(context.pluginEntry().id(), { replacement: '_' })));
     }
 

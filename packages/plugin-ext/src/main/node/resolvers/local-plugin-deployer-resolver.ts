@@ -24,9 +24,7 @@ import URI from '@theia/core/lib/common/uri';
 @injectable()
 export abstract class LocalPluginDeployerResolver implements PluginDeployerResolver {
     public async resolve(pluginResolverContext: PluginDeployerResolverContext): Promise<void> {
-        const localPath = await this.resolveLocalPluginPath(
-            pluginResolverContext,
-            this.supportedScheme);
+        const localPath = await this.resolveLocalPluginPath(pluginResolverContext, this.supportedScheme);
         if (localPath) {
             await this.resolveFromLocalPath(pluginResolverContext, localPath);
         }
@@ -40,9 +38,7 @@ export abstract class LocalPluginDeployerResolver implements PluginDeployerResol
 
     protected abstract resolveFromLocalPath(pluginResolverContext: PluginDeployerResolverContext, localPath: string): Promise<void>;
 
-    private async resolveLocalPluginPath(
-        pluginResolverContext: PluginDeployerResolverContext,
-        expectedScheme: string): Promise<string | null> {
+    private async resolveLocalPluginPath(pluginResolverContext: PluginDeployerResolverContext, expectedScheme: string): Promise<string | null> {
         const localUri = new URI(pluginResolverContext.getOriginId());
         if (localUri.scheme !== expectedScheme) {
             return null;

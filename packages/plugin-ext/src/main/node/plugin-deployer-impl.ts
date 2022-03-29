@@ -20,8 +20,7 @@ import { injectable, optional, multiInject, inject, named } from '@theia/core/sh
 import {
     PluginDeployerResolver, PluginDeployerFileHandler, PluginDeployerDirectoryHandler,
     PluginDeployerEntry, PluginDeployer, PluginDeployerParticipant, PluginDeployerStartContext,
-    PluginDeployerResolverInit, PluginDeployerFileHandlerContext,
-    PluginDeployerDirectoryHandlerContext, PluginDeployerEntryType, PluginDeployerHandler, PluginType, UnresolvedPluginEntry, HostedPluginServer
+    PluginDeployerResolverInit, PluginDeployerEntryType, PluginDeployerHandler, PluginType, UnresolvedPluginEntry, HostedPluginServer
 } from '../../common/plugin-protocol';
 import { PluginDeployerEntryImpl } from './plugin-deployer-entry-impl';
 import {
@@ -320,9 +319,8 @@ export class PluginDeployerImpl implements PluginDeployer {
             this.pluginDeployerFileHandlers.forEach(pluginFileHandler => {
                 const proxyPluginDeployerEntry = new ProxyPluginDeployerEntry(pluginFileHandler, (pluginDeployerEntry) as PluginDeployerEntryImpl);
                 if (pluginFileHandler.accept(proxyPluginDeployerEntry)) {
-                    const pluginDeployerFileHandlerContext: PluginDeployerFileHandlerContext = new PluginDeployerFileHandlerContextImpl(proxyPluginDeployerEntry);
-                    const promise: Promise<void> = pluginFileHandler.handle(pluginDeployerFileHandlerContext);
-                    waitPromises.push(promise);
+                    const pluginDeployerFileHandlerContext = new PluginDeployerFileHandlerContextImpl(proxyPluginDeployerEntry);
+                    waitPromises.push(pluginFileHandler.handle(pluginDeployerFileHandlerContext));
                 }
             });
 
@@ -340,9 +338,8 @@ export class PluginDeployerImpl implements PluginDeployer {
             this.pluginDeployerDirectoryHandlers.forEach(pluginDirectoryHandler => {
                 const proxyPluginDeployerEntry = new ProxyPluginDeployerEntry(pluginDirectoryHandler, (pluginDeployerEntry) as PluginDeployerEntryImpl);
                 if (pluginDirectoryHandler.accept(proxyPluginDeployerEntry)) {
-                    const pluginDeployerDirectoryHandlerContext: PluginDeployerDirectoryHandlerContext = new PluginDeployerDirectoryHandlerContextImpl(proxyPluginDeployerEntry);
-                    const promise: Promise<void> = pluginDirectoryHandler.handle(pluginDeployerDirectoryHandlerContext);
-                    waitPromises.push(promise);
+                    const pluginDeployerDirectoryHandlerContext = new PluginDeployerDirectoryHandlerContextImpl(proxyPluginDeployerEntry);
+                    waitPromises.push(pluginDirectoryHandler.handle(pluginDeployerDirectoryHandlerContext));
                 }
             });
 

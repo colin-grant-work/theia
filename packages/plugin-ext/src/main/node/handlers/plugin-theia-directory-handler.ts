@@ -17,14 +17,22 @@
 import {
     PluginDeployerDirectoryHandler,
     PluginDeployerEntry, PluginPackage, PluginDeployerDirectoryHandlerContext,
-    PluginDeployerEntryType
+    PluginDeployerEntryType,
+    PluginType
 } from '../../../common/plugin-protocol';
-import { injectable } from '@theia/core/shared/inversify';
+import { inject, injectable } from '@theia/core/shared/inversify';
 import * as fs from '@theia/core/shared/fs-extra';
 import * as path from 'path';
-
+import filenamify = require('filenamify');
+import { FileUri } from '@theia/core/lib/node';
+import { PluginCliContribution } from '../plugin-cli-contribution';
+import { getTempDir } from '../temp-dir-util';
 @injectable()
 export class PluginTheiaDirectoryHandler implements PluginDeployerDirectoryHandler {
+
+    protected readonly deploymentDirectory = FileUri.create(getTempDir('theia-copied'));
+
+    @inject(PluginCliContribution) protected readonly pluginCli: PluginCliContribution;
 
     accept(resolvedPlugin: PluginDeployerEntry): boolean {
 
@@ -61,7 +69,23 @@ export class PluginTheiaDirectoryHandler implements PluginDeployerDirectoryHandl
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handle(context: PluginDeployerDirectoryHandlerContext): Promise<any> {
+    async handle(context: PluginDeployerDirectoryHandlerContext): Promise<any> {
+        if (this.pluginCli.copyUncomprossedPlugins() && context.pluginEntry().type === PluginType.User) {
+            const id = context.pluginEntry().id();
+            const targetDir = await this.getExtensionDir(context);
+            try {
+                if (fs.existsSync(targetDir)) {
+                    console.log(`[${id}]: already copied.`);
+                } else {
+                    console.log(`[${id}]: copying to "${targetDir}"`);
+                    await fs.mkdirp(FileUri.fsPath(this.deploymentDirectory));
+                    fs.copyFileSync(context.pluginEntry().path(), targetDir);
+                }
+                context.pluginEntry().updatePath(targetDir);
+            } catch (e) {
+                console.log(`SENTINEL FOR AN ERROR COPYING [${id}]`, e);
+            }
+        }
         const types: PluginDeployerEntryType[] = [];
         const packageJson: PluginPackage = context.pluginEntry().getValue('package.json');
         if (packageJson.theiaPlugin && packageJson.theiaPlugin.backend) {
@@ -72,6 +96,10 @@ export class PluginTheiaDirectoryHandler implements PluginDeployerDirectoryHandl
         }
 
         context.pluginEntry().accept(...types);
-        return Promise.resolve(true);
+        return true;
+    }
+
+    protected async getExtensionDir(context: PluginDeployerDirectoryHandlerContext): Promise<string> {
+        return FileUri.fsPath(this.deploymentDirectory.resolve(filenamify(context.pluginEntry().id(), { replacement: '_' })));
     }
 }

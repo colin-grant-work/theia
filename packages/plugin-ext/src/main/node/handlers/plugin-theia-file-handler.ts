@@ -49,10 +49,7 @@ export class PluginTheiaFileHandler implements PluginDeployerFileHandler {
     }
 
     protected async getPluginDir(context: PluginDeployerFileHandlerContext): Promise<string> {
-        let pluginsDirUri = this.systemPluginsDirUri;
-        if (context.pluginEntry().type === PluginType.User) {
-            pluginsDirUri = await this.environment.getPluginsDirUri();
-        }
+        const pluginsDirUri = this.systemPluginsDirUri;
         return FileUri.fsPath(pluginsDirUri.resolve(filenamify(context.pluginEntry().id(), { replacement: '_' })));
     }
 }

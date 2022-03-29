@@ -16,16 +16,24 @@
 
 import * as fs from '@theia/core/shared/fs-extra';
 import * as path from 'path';
-import { injectable } from '@theia/core/shared/inversify';
+import { inject, injectable } from '@theia/core/shared/inversify';
 import { RecursivePartial } from '@theia/core';
 import {
     PluginDeployerDirectoryHandler,
     PluginDeployerEntry, PluginDeployerDirectoryHandlerContext,
-    PluginDeployerEntryType, PluginPackage
+    PluginDeployerEntryType, PluginPackage, PluginType
 } from '@theia/plugin-ext';
+import { FileUri } from '@theia/core/lib/node';
+import { getTempDir } from '@theia/plugin-ext/lib/main/node/temp-dir-util';
+import { PluginCliContribution } from '@theia/plugin-ext/lib/main/node/plugin-cli-contribution';
+import filenamify = require('filenamify');
 
 @injectable()
 export class PluginVsCodeDirectoryHandler implements PluginDeployerDirectoryHandler {
+
+    protected readonly deploymentDirectory = FileUri.create(getTempDir('vscode-copied'));
+
+    @inject(PluginCliContribution) protected readonly pluginCli: PluginCliContribution;
 
     accept(plugin: PluginDeployerEntry): boolean {
         console.debug(`Resolving "${plugin.id()}" as a VS Code extension...`);
@@ -33,6 +41,23 @@ export class PluginVsCodeDirectoryHandler implements PluginDeployerDirectoryHand
     }
 
     async handle(context: PluginDeployerDirectoryHandlerContext): Promise<void> {
+        if (this.pluginCli.copyUncomprossedPlugins() && context.pluginEntry().type === PluginType.User) {
+            const id = context.pluginEntry().id();
+            const origin = context.pluginEntry().path();
+            const targetDir = await this.getExtensionDir(context);
+            try {
+                if (fs.existsSync(targetDir)) {
+                    console.log(`[${id}]: already copied.`);
+                } else {
+                    console.log(`[${id}]: copying to "${targetDir}"`);
+                    await fs.mkdirp(FileUri.fsPath(this.deploymentDirectory));
+                    fs.copyFileSync(origin, targetDir);
+                }
+                context.pluginEntry().updatePath(targetDir);
+            } catch (e) {
+                console.log(`SENTINEL FOR AN ERROR COPYING ${origin} -> ${targetDir} ${context.pluginEntry().originalPath()} [${id}] ${process.pid}, ${process.ppid}`, e);
+            }
+        }
         context.pluginEntry().accept(PluginDeployerEntryType.BACKEND);
     }
 
@@ -82,4 +107,7 @@ export class PluginVsCodeDirectoryHandler implements PluginDeployerDirectoryHand
         }
     }
 
+    protected async getExtensionDir(context: PluginDeployerDirectoryHandlerContext): Promise<string> {
+        return FileUri.fsPath(this.deploymentDirectory.resolve(filenamify(context.pluginEntry().id(), { replacement: '_' })));
+    }
 }
