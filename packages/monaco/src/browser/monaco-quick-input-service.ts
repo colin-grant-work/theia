@@ -15,11 +15,12 @@
 // *****************************************************************************
 
 import {
-    InputBox, InputOptions, KeybindingRegistry, PickOptions,
+    ApplicationShell,
+    InputBox, InputOptions, KeybindingRegistry, NormalizedQuickInputButton, PickOptions,
     QuickInputButton, QuickInputHideReason, QuickInputService, QuickPick, QuickPickItem,
     QuickPickItemButtonEvent, QuickPickItemHighlights, QuickPickOptions, QuickPickSeparator
 } from '@theia/core/lib/browser';
-import { injectable, inject } from '@theia/core/shared/inversify';
+import { injectable, inject, postConstruct } from '@theia/core/shared/inversify';
 import {
     IInputBox, IInputOptions, IKeyMods, IPickOptions, IQuickInput, IQuickInputButton,
     IQuickInputService, IQuickNavigateConfiguration, IQuickPick, IQuickPickItem, IQuickPickItemButtonEvent, IQuickPickSeparator, QuickPickInput
@@ -61,6 +62,9 @@ export class MonacoQuickInputImplementation implements IQuickInputService {
     controller: QuickInputController;
     quickAccess: IQuickAccessController;
 
+    @inject(ApplicationShell)
+    protected readonly shell: ApplicationShell;
+
     @inject(VSCodeContextKeyService)
     protected readonly contextKeyService: VSCodeContextKeyService;
 
@@ -71,7 +75,8 @@ export class MonacoQuickInputImplementation implements IQuickInputService {
     get onShow(): monaco.IEvent<void> { return this.controller.onShow; }
     get onHide(): monaco.IEvent<void> { return this.controller.onHide; }
 
-    constructor() {
+    @postConstruct()
+    protected init(): void {
         this.initContainer();
         this.initController();
         this.quickAccess = new QuickAccessController(this, StandaloneServices.get(IInstantiationService));
@@ -149,15 +154,9 @@ export class MonacoQuickInputImplementation implements IQuickInputService {
     }
 
     private initContainer(): void {
-        const overlayWidgets = document.createElement('div');
-        overlayWidgets.classList.add('quick-input-overlay');
-        document.body.appendChild(overlayWidgets);
-        const container = this.container = document.createElement('quick-input-container');
-        container.style.position = 'absolute';
-        container.style.top = '0px';
-        container.style.right = '50%';
-        container.style.zIndex = '1000000';
-        overlayWidgets.appendChild(container);
+        const container = this.container = document.createElement('div');
+        container.id = 'quick-input-container';
+        this.shell.mainPanel.node.appendChild(this.container);
     }
 
     private initController(): void {
@@ -228,15 +227,23 @@ export class MonacoQuickInputService implements QuickInputService {
     }
 
     async pick<T extends QuickPickItem, O extends PickOptions<T> = PickOptions<T>>(
-        picks: Promise<QuickPickInput<T>[]> | QuickPickInput<T>[], options: O = <O>{}, token?: monaco.CancellationToken
+        picks: Promise<QuickPickInput<T>[]> | QuickPickInput<T>[], options?: O, token?: monaco.CancellationToken
     ): Promise<(O extends { canPickMany: true; } ? T[] : T) | undefined> {
+        type M = T & { buttons?: NormalizedQuickInputButton[] };
+        type R = (O extends { canPickMany: true; } ? T[] : T);
         const monacoPicks = (await picks).map(pick => {
-            if (pick.type === 'separator') {
-                return pick;
+            if (pick.type !== 'separator') {
+                pick.buttons &&= pick.buttons.map(QuickInputButton.normalize);
             }
-            return this.convertItems(pick);
+            return pick as M;
         });
-        return this.monacoService.pick(monacoPicks, options as any, token) as any; /* eslint-disable-line @typescript-eslint/no-explicit-any */
+        const monacoOptions = options as IPickOptions<M>;
+        const picked = await this.monacoService.pick(monacoPicks, monacoOptions, token);
+        if (!picked) { return picked; }
+        if (options?.canPickMany) {
+            return (Array.isArray(picked) ? picked : [picked]) as R;
+        }
+        return Array.isArray(picked) ? picked[0] : picked;
     }
 
     showQuickPick<T extends QuickPickItem>(items: Array<T | QuickPickSeparator>, options?: QuickPickOptions<T>): Promise<T> {
