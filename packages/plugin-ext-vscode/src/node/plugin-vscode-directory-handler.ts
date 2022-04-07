@@ -37,25 +37,37 @@ export class PluginVsCodeDirectoryHandler implements PluginDeployerDirectoryHand
 
     accept(plugin: PluginDeployerEntry): boolean {
         console.debug(`Resolving "${plugin.id()}" as a VS Code extension...`);
-        return this.resolvePackage(plugin) || this.resolveFromSources(plugin) || this.resolveFromVSIX(plugin) || this.resolveFromNpmTarball(plugin);
+        return this.attemptResolution(plugin);
+    }
+
+    protected attemptResolution(plugin: PluginDeployerEntry): boolean {
+        return this.resolvePackage(plugin) || this.deriveMetadata(plugin);
+    }
+
+    protected deriveMetadata(plugin: PluginDeployerEntry): boolean {
+        return this.resolveFromSources(plugin) || this.resolveFromVSIX(plugin) || this.resolveFromNpmTarball(plugin);
     }
 
     async handle(context: PluginDeployerDirectoryHandlerContext): Promise<void> {
         if (this.pluginCli.copyUncomprossedPlugins() && context.pluginEntry().type === PluginType.User) {
-            const id = context.pluginEntry().id();
-            const origin = context.pluginEntry().path();
+            const entry = context.pluginEntry();
+            const id = entry.id();
+            const origin = entry.originalPath();
             const targetDir = await this.getExtensionDir(context);
             try {
-                if (fs.existsSync(targetDir)) {
+                if (fs.existsSync(targetDir) || !entry.path().startsWith(origin)) {
                     console.log(`[${id}]: already copied.`);
                 } else {
                     console.log(`[${id}]: copying to "${targetDir}"`);
                     await fs.mkdirp(FileUri.fsPath(this.deploymentDirectory));
-                    fs.copyFileSync(origin, targetDir);
+                    await context.copy(origin, targetDir);
+                    entry.updatePath(targetDir);
+                    if (!this.deriveMetadata(entry)) {
+                        throw new Error('Unable to resolve plugin metadata after copying');
+                    }
                 }
-                context.pluginEntry().updatePath(targetDir);
             } catch (e) {
-                console.log(`SENTINEL FOR AN ERROR COPYING ${origin} -> ${targetDir} ${context.pluginEntry().originalPath()} [${id}] ${process.pid}, ${process.ppid}`, e);
+                console.warn(`[${id}]: Error when copying.`, e);
             }
         }
         context.pluginEntry().accept(PluginDeployerEntryType.BACKEND);

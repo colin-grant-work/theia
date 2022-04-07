@@ -17,7 +17,7 @@
 import { URI as Uri } from 'vscode-uri';
 import { Path } from './path';
 
-export default class URI {
+export class URI {
 
     private readonly codeUri: Uri;
     private _path: Path | undefined;
@@ -246,3 +246,5 @@ export default class URI {
         return (this.authority === uri.authority) && (this.scheme === uri.scheme);
     }
 }
+
+export default URI;

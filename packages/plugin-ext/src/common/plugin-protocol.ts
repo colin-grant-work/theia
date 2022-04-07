@@ -486,6 +486,8 @@ export interface PluginDeployerFileHandlerContext {
 
 export interface PluginDeployerDirectoryHandlerContext {
 
+    copy(origin: string, target: string): Promise<void>;
+
     pluginEntry(): PluginDeployerEntry;
 
 }
@@ -793,6 +795,7 @@ export interface ExtensionContext {
 
 export interface PluginMetadata {
     host: string;
+    outOfSync: boolean;
     model: PluginModel;
     lifecycle: PluginLifecycle;
 }
