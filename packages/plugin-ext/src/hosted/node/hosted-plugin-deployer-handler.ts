@@ -17,11 +17,15 @@
 import * as fs from '@theia/core/shared/fs-extra';
 import { injectable, inject } from '@theia/core/shared/inversify';
 import { ILogger } from '@theia/core';
-import { PluginDeployerHandler, PluginDeployerEntry, PluginEntryPoint, DeployedPlugin, PluginDependencies, PluginType } from '../../common/plugin-protocol';
+import {
+    PluginDeployerHandler, PluginDeployerEntry, PluginEntryPoint,
+    DeployedPlugin, PluginDependencies, PluginType, PluginPackage, PluginModel
+} from '../../common/plugin-protocol';
 import { HostedPluginReader } from './plugin-reader';
 import { Deferred } from '@theia/core/lib/common/promise-util';
 import { HostedPluginLocalizationService } from './hosted-plugin-localization-service';
 import { Stopwatch } from '@theia/core/lib/common';
+import { PluginObsoletionHandler } from './plugin-obsoletion-handler';
 
 @injectable()
 export class HostedPluginDeployerHandler implements PluginDeployerHandler {
@@ -37,6 +41,8 @@ export class HostedPluginDeployerHandler implements PluginDeployerHandler {
 
     @inject(Stopwatch)
     protected readonly stopwatch: Stopwatch;
+
+    @inject(PluginObsoletionHandler) protected readonly obsoletionHandler: PluginObsoletionHandler;
 
     protected readonly deployedLocations = new Map<string, Set<string>>();
     protected readonly originalLocations = new Map<string, string>();
@@ -54,8 +60,6 @@ export class HostedPluginDeployerHandler implements PluginDeployerHandler {
 
     protected frontendPluginsMetadataDeferred = new Deferred<void>();
 
-    protected toDisposeOnReconnect: Array<{ dispose(): Promise<unknown> }> = [];
-
     async getDeployedFrontendPluginIds(): Promise<string[]> {
         // await first deploy
         await this.frontendPluginsMetadataDeferred.promise;
@@ -68,6 +72,10 @@ export class HostedPluginDeployerHandler implements PluginDeployerHandler {
         await this.backendPluginsMetadataDeferred.promise;
         // fetch the last deployed state
         return [...this.deployedBackendPlugins.keys()];
+    }
+
+    async getObsoletePluginIds(): Promise<string[]> {
+        return this.obsoletionHandler.getObsoletePluginIds();
     }
 
     getDeployedPlugin(pluginId: string): DeployedPlugin | undefined {
@@ -88,17 +96,29 @@ export class HostedPluginDeployerHandler implements PluginDeployerHandler {
             if (!manifest) {
                 return undefined;
             }
-            const metadata = this.reader.readMetadata(manifest);
-            const dependencies: PluginDependencies = { metadata };
-            // Do not resolve system (aka builtin) plugins because it should be done statically at build time.
-            if (entry.type !== PluginType.System) {
-                dependencies.mapping = this.reader.readDependencies(manifest);
-            }
-            return dependencies;
+            return this.getDependenciesFromManifest(manifest, entry.type);
         } catch (e) {
             console.error(`Failed to load plugin dependencies from '${pluginPath}' path`, e);
             return undefined;
         }
+    }
+
+    async getPluginDependenciesById(id: string): Promise<PluginDependencies | undefined> {
+        const plugin = this.getDeployedPlugin(id);
+        const hasEngines = (candidate: PluginModel): candidate is PluginModel & { engines: PluginPackage['engines'] } => true;
+        if (plugin && hasEngines(plugin.metadata.model)) {
+            return this.getDependenciesFromManifest(plugin.metadata.model, plugin.type!);
+        }
+    }
+
+    protected async getDependenciesFromManifest(manifest: PluginPackage, type: PluginType): Promise<PluginDependencies> {
+        const metadata = this.reader.readMetadata(manifest);
+        const dependencies: PluginDependencies = { metadata };
+        // Do not resolve system (aka builtin) plugins because it should be done statically at build time.
+        if (type !== PluginType.System) {
+            dependencies.mapping = this.reader.readDependencies(manifest);
+        }
+        return dependencies;
     }
 
     async deployFrontendPlugins(frontendPlugins: PluginDeployerEntry[]): Promise<void> {
@@ -183,18 +203,12 @@ export class HostedPluginDeployerHandler implements PluginDeployerHandler {
         return true;
     }
 
-    async handleBeforeFork(): Promise<void> {
-        console.log('SENTINEL FOR UNDEPLOYING SOME PLUGINS');
-        await Promise.all(this.toDisposeOnReconnect.map(undeployment => undeployment.dispose()));
-    }
-
     async undeployPluginSafely(pluginId: string): Promise<boolean> {
         const originalLocation = this.originalLocations.get(pluginId);
         const deployedLocations = this.deployedLocations.get(pluginId);
         if (!originalLocation) {
             return false;
         }
-        this.toDisposeOnReconnect.push({ dispose: () => this.undeployPlugin(pluginId) });
         if (!deployedLocations?.has(originalLocation)) {
             try {
                 console.log(`[${pluginId}] Deleting source files from ${originalLocation}.`);
@@ -205,6 +219,7 @@ export class HostedPluginDeployerHandler implements PluginDeployerHandler {
         } else {
             console.warn(`[${pluginId}] Cannot remove source files. It is deployed in its original location: ${originalLocation}. Plugin will be uninstalled on restart.`);
         }
+        await this.obsoletionHandler.markAsObsolete(pluginId);
         return true;
     }
 }

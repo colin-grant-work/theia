@@ -122,7 +122,7 @@ export default new ContainerModule((bind, unbind, isBound, rebind) => {
         setTimeout(() => {
             const support = ctx.container.get(HostedPluginSupport);
             (<HostedPluginClient>client).getActivePlugins = () => support.getActivePlugins();
-        }, 10);
+        });
         return connection.createProxy<HostedPluginServer>(hostedServicePath, client);
     }).inSingletonScope();
 

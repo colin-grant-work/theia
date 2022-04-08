@@ -20,9 +20,7 @@ import { PluginPackage, PluginScanner, PluginMetadata, PLUGIN_HOST_BACKEND } fro
 export class MetadataScanner {
     private scanners: Map<string, PluginScanner> = new Map();
 
-    constructor(
-        @multiInject(PluginScanner) scanners: PluginScanner[]
-    ) {
+    constructor(@multiInject(PluginScanner) scanners: PluginScanner[]) {
         scanners.forEach((scanner: PluginScanner) => {
             this.scanners.set(scanner.apiType, scanner);
         });

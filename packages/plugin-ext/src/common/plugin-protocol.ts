@@ -795,7 +795,6 @@ export interface ExtensionContext {
 
 export interface PluginMetadata {
     host: string;
-    outOfSync: boolean;
     model: PluginModel;
     lifecycle: PluginLifecycle;
 }
@@ -839,6 +838,7 @@ export interface PluginDeployerHandler {
     undeployPluginSafely(pluginId: string): Promise<boolean>;
 
     getPluginDependencies(pluginToBeInstalled: PluginDeployerEntry): Promise<PluginDependencies | undefined>;
+    getObsoletePluginIds(): Promise<string[]>;
 }
 
 export interface GetDeployedPluginsParams {
@@ -861,6 +861,8 @@ export const HostedPluginServer = Symbol('HostedPluginServer');
 export interface HostedPluginServer extends JsonRpcServer<HostedPluginClient> {
 
     getDeployedPluginIds(): Promise<string[]>;
+
+    getObsoletePluginIds(): Promise<string[]>;
 
     getDeployedPlugins(params: GetDeployedPluginsParams): Promise<DeployedPlugin[]>;
 

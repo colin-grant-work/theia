@@ -26,6 +26,9 @@ import { environment } from '@theia/core/shared/@theia/application-package/lib/e
 import { WsRequestValidatorContribution } from '@theia/core/lib/node/ws-request-validators';
 import { MaybePromise } from '@theia/core/lib/common';
 
+/**
+ * This service implements a server for handling traffic with webviews.
+ */
 @injectable()
 export class PluginApiContribution implements BackendApplicationContribution, WsRequestValidatorContribution {
 

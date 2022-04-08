@@ -95,16 +95,9 @@ export class PluginDeployerImpl implements PluginDeployer {
         });
     }
 
-    public async initResolvers(): Promise<Array<void>> {
-
-        // call init on each resolver
+    public async initResolvers(): Promise<void> {
         const pluginDeployerResolverInit: PluginDeployerResolverInit = new PluginDeployerResolverInitImpl();
-        const promises = this.pluginResolvers.map(async pluginResolver => {
-            if (pluginResolver.init) {
-                pluginResolver.init(pluginDeployerResolverInit);
-            }
-        });
-        return Promise.all(promises);
+        await Promise.all(this.pluginResolvers.map(async pluginResolver => pluginResolver.init?.(pluginDeployerResolverInit)));
     }
 
     protected async doStart(): Promise<void> {
@@ -227,6 +220,7 @@ export class PluginDeployerImpl implements PluginDeployer {
     async resolvePlugins(plugins: UnresolvedPluginEntry[]): Promise<PluginDeployerEntry[]> {
         const visited = new Set<string>();
         const pluginsToDeploy = new Map<string, PluginDeployerEntry>();
+        const notToDeploy = new Set(await this.pluginDeployerHandler.getObsoletePluginIds());
 
         let queue: UnresolvedPluginEntry[] = [...plugins];
         while (queue.length) {
@@ -250,7 +244,7 @@ export class PluginDeployerImpl implements PluginDeployer {
                     type = PluginType.System;
                 }
                 try {
-                    const pluginDeployerEntries = await this.resolvePlugin(id, type);
+                    const pluginDeployerEntries = (await this.resolvePlugin(id, type)).filter(plugin => !notToDeploy.has(plugin.id()));
                     await this.applyFileHandlers(pluginDeployerEntries);
                     await this.applyDirectoryFileHandlers(pluginDeployerEntries);
                     for (const deployerEntry of pluginDeployerEntries) {
