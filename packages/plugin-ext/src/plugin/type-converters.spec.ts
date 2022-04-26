@@ -19,7 +19,8 @@ import * as Converter from './type-converters';
 import * as theia from '@theia/plugin';
 import * as types from './types-impl';
 import * as model from '../common/plugin-api-rpc-model';
-import { MarkdownString, isMarkdownString } from './markdown-string';
+import { MarkdownString } from './markdown-string';
+import { MarkdownString as MarkdownStringInterface } from '@theia/core/lib/common/markdown-rendering';
 import { TaskDto } from '../common/plugin-api-rpc';
 import { TaskGroup } from './types-impl';
 
@@ -63,7 +64,7 @@ describe('Type converters:', () => {
                 const markdownString = new MarkdownString('**test**');
 
                 // when
-                const result = isMarkdownString(markdownString);
+                const result = MarkdownStringInterface.is(markdownString);
 
                 // then
                 assert.deepStrictEqual(result !== false, true);
@@ -74,7 +75,7 @@ describe('Type converters:', () => {
                 const markdownObject = { value: '*test*' };
 
                 // when
-                const result = isMarkdownString(markdownObject);
+                const result = MarkdownStringInterface.is(markdownObject);
 
                 // then
                 assert.deepStrictEqual(result !== false, true);
@@ -85,7 +86,7 @@ describe('Type converters:', () => {
                 const markdownObject = { field1: 5, value: '*test*', field2: 'test' };
 
                 // when
-                const result = isMarkdownString(markdownObject);
+                const result = MarkdownStringInterface.is(markdownObject);
 
                 // then
                 assert.deepStrictEqual(result !== false, true);
@@ -96,7 +97,7 @@ describe('Type converters:', () => {
                 const nonMarkdownObject = { field1: 5, field2: 'test' };
 
                 // when
-                const result = isMarkdownString(nonMarkdownObject);
+                const result = MarkdownStringInterface.is(nonMarkdownObject);
 
                 // then
                 assert.deepStrictEqual(result === false, true);
@@ -107,7 +108,7 @@ describe('Type converters:', () => {
                 const nonMarkdownObject = { isTrusted: true, field1: 5, field2: 'test' };
 
                 // when
-                const result = isMarkdownString(nonMarkdownObject);
+                const result = MarkdownStringInterface.is(nonMarkdownObject);
 
                 // then
                 assert.deepStrictEqual(result === false, true);
