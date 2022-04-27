@@ -17,10 +17,8 @@
 import { inject, injectable } from 'inversify';
 import { Disposable, DisposableCollection, disposableTimeout, isOSX } from '../../common';
 import { MarkdownString } from '../../common/markdown-rendering/markdown-string';
-import { ColorRegistry } from '../color-registry';
 import { MarkdownRenderer, MarkdownRendererFactory } from '../markdown-rendering/markdown-renderer';
 import { PreferenceService } from '../preferences';
-import { ThemeService } from '../theming';
 
 @injectable()
 export class StatusBarHoverManager {
@@ -28,8 +26,6 @@ export class StatusBarHoverManager {
     protected static styleSheetId = 'theia-status-bar-hover-style';
     @inject(PreferenceService) protected readonly preferences: PreferenceService;
     @inject(MarkdownRendererFactory) protected readonly markdownRendererFactory: MarkdownRendererFactory;
-    @inject(ThemeService) protected readonly themeService: ThemeService;
-    @inject(ColorRegistry) protected readonly colorRegistry: ColorRegistry;
 
     protected _markdownRenderer: MarkdownRenderer | undefined;
     protected get markdownRenderer(): MarkdownRenderer {

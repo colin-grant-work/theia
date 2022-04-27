@@ -56,8 +56,7 @@ export interface MarkdownRendererFactory {
 
 @injectable()
 export class MarkdownRendererImpl implements MarkdownRenderer {
-    @inject(LabelParser)
-    protected readonly labelParser: LabelParser;
+    @inject(LabelParser) protected readonly labelParser: LabelParser;
     protected readonly markdownIt = markdownit();
     protected resetRenderer: Disposable | undefined;
 
