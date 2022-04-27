@@ -126,10 +126,10 @@ describe('Type converters:', () => {
 
             it('should convert plugin markdown to model markdown', () => {
                 // when
-                const result = { ...Converter.fromMarkdown(pluginMarkdown) };
+                const result = Converter.fromMarkdown(pluginMarkdown);
 
                 // then
-                assert.deepStrictEqual(result, modelMarkdown);
+                assert.deepStrictEqual(result, { ...modelMarkdown, supportThemeIcons: false }, 'The implementation includes an explicit default `false` for `supportThemeIcons`');
             });
 
             it('should convert string to model markdown', () => {
@@ -158,16 +158,13 @@ describe('Type converters:', () => {
                 ];
 
                 // when
-                const result: model.MarkdownString[] = Converter.fromManyMarkdown(markups)
-                    // convert to vanilla JS Object for deepStrictEqual comparison:
-                    .map(md => ({ ...md }));
-
+                const result: model.MarkdownString[] = Converter.fromManyMarkdown(markups);
                 // then
                 assert.deepStrictEqual(Array.isArray(result), true);
                 assert.deepStrictEqual(result.length, 3);
-                assert.deepStrictEqual(result[0], modelMarkdown);
-                assert.deepStrictEqual(result[1], modelMarkdown);
-                assert.deepStrictEqual(result[2], modelMarkdownWithCode);
+                assert.deepStrictEqual(result[0], { ...modelMarkdown, supportThemeIcons: false }, 'MarkdownString implementation includes default value for `supportThemeIcons`');
+                assert.deepStrictEqual(result[1], modelMarkdown, 'Strings should be converted to Markdown.');
+                assert.deepStrictEqual(result[2], modelMarkdownWithCode, 'Objects matching the interface should be unchanged');
             });
         });
 

@@ -193,6 +193,8 @@ export function fromMarkdown(markup: theia.MarkdownString | theia.MarkedString):
     if (isCodeblock(markup)) {
         const { language, value } = markup;
         return { value: '```' + language + '\n' + value + '\n```\n' };
+    } else if (markup instanceof PluginMarkdownStringImpl) {
+        return markup.toJSON();
     } else if (MarkdownStringDTO.is(markup)) {
         return markup;
     } else if (typeof markup === 'string') {

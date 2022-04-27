@@ -14,6 +14,7 @@
 // SPDX-License-Identifier: EPL-2.0 OR GPL-2.0 WITH Classpath-exception-2.0
 // *****************************************************************************
 
+import { Mutable } from '@theia/core';
 import { MarkdownStringImpl as BaseMarkdownString, MarkdownString as MarkdownStringInterface } from '@theia/core/lib/common/markdown-rendering';
 import * as pluginAPI from '@theia/plugin';
 import { es5ClassCompat } from '../common/types';
@@ -96,12 +97,19 @@ export class MarkdownString implements pluginAPI.MarkdownString {
     }
 
     toJSON(): MarkdownStringInterface {
-        return {
-            value: this.value,
-            isTrusted: this.isTrusted,
-            supportThemeIcons: this.supportThemeIcons,
-            supportHtml: this.supportHtml,
-            baseUri: this.baseUri?.toJSON()
-        };
+        const plainObject: Mutable<MarkdownStringInterface> = { value: this.value };
+        if (this.isTrusted !== undefined) {
+            plainObject.isTrusted = this.isTrusted;
+        }
+        if (this.supportThemeIcons !== undefined) {
+            plainObject.supportThemeIcons = this.supportThemeIcons;
+        }
+        if (this.supportHtml !== undefined) {
+            plainObject.supportThemeIcons = this.supportHtml;
+        }
+        if (this.baseUri !== undefined) {
+            plainObject.baseUri = this.baseUri.toJSON();
+        }
+        return plainObject;
     }
 }
