@@ -22,25 +22,33 @@ import { Disposable, DisposableGroup } from '../../common';
 import { LabelParser } from '../label-parser';
 import { codicon } from '../widgets';
 
+// #region Copied from Copied from https://github.com/microsoft/vscode/blob/7d9b1c37f8e5ae3772782ba3b09d827eb3fdd833/src/vs/base/browser/formattedTextRenderer.ts
 export interface ContentActionHandler {
-    callback: (content: string, event?: MouseEvent) => void; // TODO: THE EVENT HANDLING IS A BIT OF A PROBLEM, SINCE THEY USE THEIR OWN MOUSE EVENT.
+    callback: (content: string, event?: MouseEvent) => void;
     readonly disposables: DisposableGroup;
 }
 
 export interface FormattedTextRenderOptions {
     readonly className?: string;
     readonly inline?: boolean;
-    // readonly actionHandler?: ContentActionHandler;
+    readonly actionHandler?: ContentActionHandler;
     readonly renderCodeSegments?: boolean;
+}
+
+// #endregion
+
+// #region Copied from Copied from https://github.com/microsoft/vscode/blob/7d9b1c37f8e5ae3772782ba3b09d827eb3fdd833/src/vs/base/browser/markdownRenderer.ts
+
+export interface MarkdownRenderResult extends Disposable {
+    element: HTMLElement;
 }
 
 export interface MarkdownRenderOptions extends FormattedTextRenderOptions {
     readonly codeBlockRenderer?: (languageId: string, value: string) => Promise<HTMLElement>;
     readonly asyncRenderCallback?: () => void;
 }
-export interface MarkdownRenderResult extends Disposable {
-    element: HTMLElement;
-}
+
+// #endregion
 
 /** Use this directly if you aren't worried about circular dependencies in the Shell */
 export const MarkdownRenderer = Symbol('MarkdownRenderer');

@@ -27,8 +27,10 @@ import { OpenExternalOptions, OpenInternalOptions } from '@theia/monaco-editor-c
 import { HttpOpenHandlerOptions } from '@theia/core/lib/browser/http-open-handler';
 import { URI } from '@theia/core/lib/common/uri';
 import { MarkdownRenderer, MarkdownRenderOptions, MarkdownRenderResult } from '@theia/core/lib/browser/markdown-rendering/markdown-renderer';
-import { MarkedOptions } from '@theia/monaco-editor-core/esm/vs/base/browser/markdownRenderer';
+import { MarkedOptions, MarkdownRenderOptions as MonacoMarkdownRenderOptions } from '@theia/monaco-editor-core/esm/vs/base/browser/markdownRenderer';
 import { MarkdownString } from '@theia/core/lib/common/markdown-rendering';
+import { DisposableStore } from '@theia/monaco-editor-core/esm/vs/base/common/lifecycle';
+import { DisposableCollection, DisposableGroup } from '@theia/core';
 
 @injectable()
 export class MonacoMarkdownRenderer implements MarkdownRenderer {
@@ -41,7 +43,30 @@ export class MonacoMarkdownRenderer implements MarkdownRenderer {
     protected _openerService: OpenerService | undefined;
 
     render(markdown: MarkdownString | undefined, options?: MarkdownRenderOptions, markedOptions?: MarkedOptions): MarkdownRenderResult {
-        return this.delegate.render(markdown, options);
+        return this.delegate.render(markdown, this.transformOptions(options), markedOptions);
+    }
+
+    protected transformOptions(options?: MarkdownRenderOptions): MonacoMarkdownRenderOptions | undefined {
+        if (!options?.actionHandler) {
+            return options as MarkdownRenderOptions & { actionHandler: undefined } | undefined;
+        }
+        const monacoActionHandler: MonacoMarkdownRenderOptions['actionHandler'] = {
+            disposables: this.toDisposableStore(options.actionHandler.disposables),
+            callback: (content, e) => options.actionHandler!.callback(content, e?.browserEvent)
+        };
+        return { ...options, actionHandler: monacoActionHandler };
+    }
+
+    protected toDisposableStore(current: DisposableGroup): DisposableStore {
+        if (current instanceof DisposableStore) {
+            return current;
+        } else if (current instanceof DisposableCollection) {
+            const store = new DisposableStore();
+            current['disposables'].forEach(disposable => store.add(disposable));
+            return store;
+        } else {
+            return new DisposableStore();
+        }
     }
 
     @postConstruct()
