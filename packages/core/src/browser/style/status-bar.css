@@ -126,7 +126,7 @@ body.theia-no-open-workspace #theia-statusBar {
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* Adapted from https://github.com/microsoft/vscode/blob/main/src/vs/workbench/services/hover/browser/hoverService.ts */
+/* Adapted from https://github.com/microsoft/vscode/blob/7d9b1c37f8e5ae3772782ba3b09d827eb3fdd833/src/vs/workbench/services/hover/browser/hoverService.ts */
 
 .theia-status-bar-hover {
     font-family: var(--theia-ui-font-family);

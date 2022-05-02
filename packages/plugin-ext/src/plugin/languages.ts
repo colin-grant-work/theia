@@ -670,7 +670,7 @@ export class LanguagesExtImpl implements LanguagesExt {
         return this.withAdapter(handle, DocumentRangeSemanticTokensAdapter, adapter => adapter.provideDocumentRangeSemanticTokens(URI.revive(resource), range, token), null);
     }
 
-    // Copied from https://github.com/microsoft/vscode/blob/main/src/vs/workbench/api/common/extHostLanguages.ts
+    // Copied from https://github.com/microsoft/vscode/blob/7d9b1c37f8e5ae3772782ba3b09d827eb3fdd833/src/vs/workbench/api/common/extHostLanguages.ts
     protected statusItemHandlePool = 0;
     protected readonly statusItemIds = new Set<string>();
     createLanguageStatusItem(extension: Plugin, id: string, selector: theia.DocumentSelector): theia.LanguageStatusItem {
