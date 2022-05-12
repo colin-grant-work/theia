@@ -46,7 +46,6 @@ import {
     SidebarMenuWidget, SidebarTopMenuWidgetFactory,
     SplitPositionHandler, DockPanelRendererFactory, ApplicationShellLayoutMigration, ApplicationShellLayoutMigrationError, SidebarBottomMenuWidgetFactory
 } from './shell';
-import { StatusBar, StatusBarImpl } from './status-bar/status-bar';
 import { LabelParser } from './label-parser';
 import { LabelProvider, LabelProviderContribution, DefaultUriLabelProviderContribution } from './label-provider';
 import { PreferenceService } from './preferences';
@@ -122,12 +121,14 @@ import { TooltipService, TooltipServiceImpl } from './tooltip-service';
 import { bindFrontendStopwatch, bindBackendStopwatch } from './performance';
 import { SaveResourceService } from './save-resource-service';
 import { UserWorkingDirectoryProvider } from './user-working-directory-provider';
+import { bindStatusBar } from './status-bar';
+import { MarkdownRenderer, MarkdownRendererFactory, MarkdownRendererImpl } from './markdown-rendering/markdown-renderer';
 
 export { bindResourceProvider, bindMessageService, bindPreferenceService };
 
 ColorApplicationContribution.initBackground();
 
-export const frontendApplicationModule = new ContainerModule((bind, unbind, isBound, rebind) => {
+export const frontendApplicationModule = new ContainerModule((bind, _unbind, _isBound, _rebind) => {
     bind(NoneIconTheme).toSelf().inSingletonScope();
     bind(LabelProviderContribution).toService(NoneIconTheme);
     bind(IconThemeService).toSelf().inSingletonScope();
@@ -267,6 +268,9 @@ export const frontendApplicationModule = new ContainerModule((bind, unbind, isBo
         return quickPickService;
     });
 
+    bind(MarkdownRenderer).to(MarkdownRendererImpl).inSingletonScope();
+    bind(MarkdownRendererFactory).toFactory(({ container }) => () => container.get(MarkdownRenderer));
+
     bindContributionProvider(bind, QuickAccessContribution);
     bind(QuickInputFrontendContribution).toSelf().inSingletonScope();
     bind(FrontendApplicationContribution).toService(QuickInputFrontendContribution);
@@ -274,8 +278,7 @@ export const frontendApplicationModule = new ContainerModule((bind, unbind, isBo
     bind(LocalStorageService).toSelf().inSingletonScope();
     bind(StorageService).toService(LocalStorageService);
 
-    bind(StatusBarImpl).toSelf().inSingletonScope();
-    bind(StatusBar).toService(StatusBarImpl);
+    bindStatusBar(bind);
     bind(LabelParser).toSelf().inSingletonScope();
 
     bindContributionProvider(bind, LabelProviderContribution);
