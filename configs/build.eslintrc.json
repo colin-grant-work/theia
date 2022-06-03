@@ -1,5 +1,6 @@
 {
   "extends": [
+    "plugin:import/typescript",
     "./base.eslintrc.json",
     "./errors.eslintrc.json"
   ]

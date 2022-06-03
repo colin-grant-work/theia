@@ -5,6 +5,9 @@ module.exports = {
         './configs/ui-tests.eslintrc.json',
         './configs/ui-tests.playwright.eslintrc.json'
     ],
+    rules: {
+        "import/no-cycle": "off"
+    },
     parserOptions: {
         tsconfigRootDir: __dirname,
         project: 'tsconfig.json'

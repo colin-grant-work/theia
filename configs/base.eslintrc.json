@@ -14,6 +14,9 @@
     "import",
     "no-null"
   ],
+  "settings": {
+    "import/resolver": "typescript"
+  },
   "env": {
     "browser": true,
     "mocha": true,
