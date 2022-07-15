@@ -11,6 +11,7 @@
 
 - [core] `handleDefault`, `handleElectronDefault` method no longer called in `BrowserMainMenuFactory.registerMenu()`, `DynamicMenuWidget.buildSubMenus()` or `ElectronMainMenuFactory.fillSubmenus()`. Override the respective calling function rather than `handleDefault`. The argument to each of the three methods listed above is now `MenuNode` and not `CompositeMenuNode`, and the methods are truly recursive and called on entire menu tree. `ActionMenuNode.action` removed; access relevant field on `ActionMenuNode.command`, `.when` etc. [#11290](https://github.com/eclipse-theia/theia/pull/11290)
 - [plugin-ext] `CodeEditorWidgetUtil` moved to `packages/plugin-ext/src/main/browser/menus/vscode-theia-menu-mappings.ts`. `MenusContributionPointHandler` extensively refactored. See PR description for details. [#11290](https://github.com/eclipse-theia/theia/pull/11290)
+- [preferences] `PreferenceHeaderRendererContribution` moved to `preference-node-renderer-creator.ts`.
 
 ## v1.27.0 - 6/30/2022
 
