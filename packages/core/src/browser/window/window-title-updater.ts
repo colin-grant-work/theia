@@ -21,6 +21,7 @@ import { inject, injectable } from 'inversify';
 import { WindowTitleService } from './window-title-service';
 import { LabelProvider } from '../label-provider';
 import { Saveable } from '../saveable';
+import { Disposable } from '../../common';
 
 @injectable()
 export class WindowTitleUpdater implements FrontendApplicationContribution {
@@ -32,14 +33,20 @@ export class WindowTitleUpdater implements FrontendApplicationContribution {
     protected readonly labelProvider: LabelProvider;
 
     onStart(app: FrontendApplication): void {
-        // Update the current title every 33 ms (30 times per second)
-        // This update is relatively cheap and work arounds a few issues in the application shell:
-        // 1. We can't easily identify when an editor becomes dirty/non-dirty, as there's no event for it
-        // 2. Adding a new widget might take a few frames for it to actually become the main widget, leaving the old widget in the title
-        // 3. Removing focus from the app messes with the active widget, leading to unexpected behavior
-        setInterval(() => {
-            this.updateTitleWidget(app.shell.getCurrentWidget('main'));
-        }, 33);
+        app.shell.mainPanel.onDidChangeCurrent(title => this.handleWidgetChange(title?.owner));
+        this.handleWidgetChange(app.shell.getCurrentWidget('main'));
+    }
+
+    protected toDisposeOnWidgetChanged: Disposable = Disposable.NULL;
+    protected handleWidgetChange(widget?: Widget): void {
+        this.toDisposeOnWidgetChanged.dispose();
+        const saveable = Saveable.get(widget);
+        if (saveable) {
+            this.toDisposeOnWidgetChanged = saveable.onDirtyChanged(() => this.windowTitleService.update({ dirty: saveable.dirty ? '●' : '' }));
+        } else {
+            this.toDisposeOnWidgetChanged = Disposable.NULL;
+        }
+        this.updateTitleWidget(widget);
     }
 
     /**
@@ -54,7 +61,6 @@ export class WindowTitleUpdater implements FrontendApplicationContribution {
         let activeFolderLong: string | undefined;
         let activeFolderMedium: string | undefined;
         let activeFolderShort: string | undefined;
-        let dirty: string | undefined;
         const uri = NavigatableWidget.getUri(widget);
         if (uri) {
             activeEditorLong = uri.path.fsPath();
@@ -70,9 +76,6 @@ export class WindowTitleUpdater implements FrontendApplicationContribution {
             activeEditorMedium = widgetTitle;
             activeEditorShort = widgetTitle;
         }
-        if (Saveable.isDirty(widget)) {
-            dirty = '●';
-        }
         this.windowTitleService.update({
             activeEditorLong,
             activeEditorMedium,
@@ -80,7 +83,6 @@ export class WindowTitleUpdater implements FrontendApplicationContribution {
             activeFolderLong,
             activeFolderMedium,
             activeFolderShort,
-            dirty
         });
     }
 
