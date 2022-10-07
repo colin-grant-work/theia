@@ -36,10 +36,13 @@ import { IGNORE_RECOMMENDATIONS_ID } from './recommended-extensions/recommended-
 import { VSXExtensionsCommands } from './vsx-extension-commands';
 import { VSXExtensionRaw } from '@theia/ovsx-client';
 import { OVSXClientProvider } from '../common/ovsx-client-provider';
+import { TabBarToolbarContribution, TabBarToolbarRegistry } from '@theia/core/lib/browser/shell/tab-bar-toolbar';
+import { VSXExtensionsSourceOptions } from './vsx-extensions-source';
+import { generateExtensionWidgetId } from './vsx-extensions-widget';
 
 @injectable()
 export class VSXExtensionsContribution extends AbstractViewContribution<VSXExtensionsViewContainer>
-    implements ColorContribution, FrontendApplicationContribution {
+    implements ColorContribution, FrontendApplicationContribution, TabBarToolbarContribution {
 
     @inject(VSXExtensionsModel) protected readonly model: VSXExtensionsModel;
     @inject(CommandRegistry) protected readonly commandRegistry: CommandRegistry;
@@ -309,5 +312,14 @@ export class VSXExtensionsContribution extends AbstractViewContribution<VSXExten
     protected async showRecommendedExtensions(): Promise<void> {
         await this.openView({ activate: true });
         this.model.search.query = RECOMMENDED_QUERY;
+    }
+
+    registerToolbarItems(registry: TabBarToolbarRegistry): void {
+        const targetID = generateExtensionWidgetId(VSXExtensionsSourceOptions.INSTALLED);
+        registry.registerItem({
+            id: 'cool-react-item',
+            render(): string { return 'hello'; },
+            isVisible(widget): boolean { return widget?.id === targetID; }
+        });
     }
 }
