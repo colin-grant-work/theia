@@ -18,7 +18,7 @@ import { PlaywrightTestConfig } from '@playwright/test';
 
 const config: PlaywrightTestConfig = {
     testDir: '../lib/tests',
-    testMatch: ['**/*.js'],
+    testMatch: ['**/theia-problems-view.test.js'],
     workers: 2,
     // Timeout for each test in milliseconds.
     timeout: 60 * 1000,

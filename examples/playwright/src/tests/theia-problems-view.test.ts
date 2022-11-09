@@ -27,34 +27,46 @@ test.describe('Theia Problems View', () => {
         app = await TheiaApp.load(page);
     });
 
-    test('should be visible and active after being opened', async () => {
-        const problemsView = await app.openView(TheiaProblemsView);
-        expect(await problemsView.isTabVisible()).toBe(true);
-        expect(await problemsView.isDisplayed()).toBe(true);
-        expect(await problemsView.isActive()).toBe(true);
+    test('Should be openable and closable and reopenable', async () => {
+        let problemsView = await app.openView(TheiaProblemsView);
+        expect(await problemsView.isTabVisible(), 'should open first time.').toBe(true);
+        // Close.
+        await problemsView.close(true);
+        expect(await problemsView.isTabVisible(), 'should not be visible if closed.').toBe(false);
+        // Re-open.
+        problemsView = await app.openView(TheiaProblemsView);
+        expect(await problemsView.isTabVisible(), 'should re-open second time.').toBe(true);
+
     });
 
-    test("should be opened at the bottom and have the title 'Problems'", async () => {
-        const problemsView = await app.openView(TheiaProblemsView);
-        expect(await problemsView.isInSidePanel()).toBe(false);
-        expect(await problemsView.side()).toBe('bottom');
-        expect(await problemsView.title()).toBe('Problems');
-    });
+    // test('should be visible and active after being opened', async () => {
+    //     const problemsView = await app.openView(TheiaProblemsView);
+    //     expect(await problemsView.isTabVisible()).toBe(true);
+    //     expect(await problemsView.isDisplayed()).toBe(true);
+    //     expect(await problemsView.isActive()).toBe(true);
+    // });
 
-    test('should be closable', async () => {
-        const problemsView = await app.openView(TheiaProblemsView);
-        expect(await problemsView.isClosable()).toBe(true);
+    // test("should be opened at the bottom and have the title 'Problems'", async () => {
+    //     const problemsView = await app.openView(TheiaProblemsView);
+    //     expect(await problemsView.isInSidePanel()).toBe(false);
+    //     expect(await problemsView.side()).toBe('bottom');
+    //     expect(await problemsView.title()).toBe('Problems');
+    // });
 
-        await problemsView.close();
-        expect(await problemsView.isTabVisible()).toBe(false);
-        expect(await problemsView.isDisplayed()).toBe(false);
-        expect(await problemsView.isActive()).toBe(false);
-    });
+    // test('should be closable', async () => {
+    //     const problemsView = await app.openView(TheiaProblemsView);
+    //     expect(await problemsView.isClosable()).toBe(true);
 
-    test("should not throw an error if 'close' is called twice", async () => {
-        const problemsView = await app.openView(TheiaProblemsView);
-        await problemsView.close();
-        await problemsView.close();
-    });
+    //     await problemsView.close();
+    //     expect(await problemsView.isTabVisible()).toBe(false);
+    //     expect(await problemsView.isDisplayed()).toBe(false);
+    //     expect(await problemsView.isActive()).toBe(false);
+    // });
+
+    // test("should not throw an error if 'close' is called twice", async () => {
+    //     const problemsView = await app.openView(TheiaProblemsView);
+    //     await problemsView.close();
+    //     await problemsView.close();
+    // });
 
 });

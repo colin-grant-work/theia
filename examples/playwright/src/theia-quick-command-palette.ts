@@ -46,12 +46,22 @@ export class TheiaQuickCommandPalette extends TheiaPageObject {
         if (!await this.isOpen()) {
             this.open();
         }
+        console.log('SENTINEL FOR SEARCHING FOR COMMAND NAME', commandName);
         let selected = await this.selectedCommand();
-        while (!(await selected?.getAttribute('aria-label') === commandName)) {
+        while (!(await this.checkAriaLabel(commandName, selected))) {
+            console.log('SENTINEL CHECK FAILED, PRESSING DOWN');
             await this.page.keyboard.press('ArrowDown');
+            console.log('SENTINEL PRESSED DOWN!');
             selected = await this.selectedCommand();
+            console.log('SINTINEL FOR HAVING GOTTEN A NEW SELECTED');
         }
         await this.page.keyboard.press('Enter');
+    }
+
+    protected async checkAriaLabel(commandName: string, selected?: ElementHandle<SVGElement | HTMLElement> | null): Promise<boolean> {
+        const ariaLabel = await selected?.getAttribute('aria-label');
+        console.log('SENTINEL FOR HAVING CHECKED AN ARIA LABEL:', ariaLabel, commandName);
+        return ariaLabel === commandName;
     }
 
     async type(command: string): Promise<void> {
